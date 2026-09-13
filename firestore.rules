@@ -10,8 +10,19 @@ rules_version = '2';
 // Keep this file in sync with the collections used in src/ so the rules
 // are version-controlled alongside the code.
 service cloud.firestore {
+  // Hardcoded admin allowlist — keep in sync with src/config/admins.ts.
+  // No role system exists yet; this is the only place a destructive action
+  // (deleting a whole vendor) is actually enforced, not just hidden in the UI.
+  function isAdmin() {
+    return request.auth != null &&
+      request.auth.token.email in ["tanawat.han@gunkul.com"];
+  }
+
   match /databases/{database}/documents {
-    match /vendors/{docId}         { allow read, write: if request.auth != null; }
+    match /vendors/{docId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if isAdmin();
+    }
     match /items/{docId}           { allow read, write: if request.auth != null; }
     match /poLines/{docId}         { allow read, write: if request.auth != null; }
     match /meta/{docId}            { allow read, write: if request.auth != null; }
