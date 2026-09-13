@@ -28,7 +28,7 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
       setStage("กำลังอ่านและรวมข้อมูล PO...");
       const poBuf = await poFile.arrayBuffer();
       setStage("กำลังคำนวณยอด Vendor และราคา Item ใหม่...");
-      const res = await importPurchaseOrders(poBuf, startDate, productMap);
+      const res = await importPurchaseOrders(poBuf, startDate, productMap, poFile.name);
       setResult(res);
       setStage("");
     } catch (e) {

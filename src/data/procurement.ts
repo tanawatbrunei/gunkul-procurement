@@ -9,9 +9,9 @@
  */
 import * as XLSX from "xlsx";
 import {
-  collection, getDocs, doc, writeBatch, setDoc, getDoc, query, where,
+  collection, getDocs, doc, writeBatch, setDoc, getDoc, query, where, orderBy,
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 
 // ---------- Types ----------
 
@@ -401,6 +401,22 @@ export interface ImportResult {
   itemsUpserted: number;
 }
 
+/** One row in the "PO update history" log — one entry per import run,
+ *  even when it added zero new POs, so the team can see *when* someone
+ *  last checked for updates, not just what changed. */
+export interface ImportHistoryEntry {
+  id: string;
+  timestamp: string;   // ISO datetime
+  importedBy: string;  // auth email, "unknown" if not signed in (shouldn't happen)
+  fileName: string;
+  companies: string[];
+  newPOs: number;
+  newLines: number;
+  skippedExisting: number;
+  skippedNoPO: number;
+  skippedBeforeDate: number;
+}
+
 /** Read the set of already-imported PO numbers from the index doc. */
 async function loadImportedPOs(): Promise<Set<string>> {
   const ref = doc(db, PO_INDEX_DOC[0], PO_INDEX_DOC[1]);
@@ -423,6 +439,7 @@ export async function importPurchaseOrders(
   poBuf: ArrayBuffer,
   startDate: string,
   productMap?: Map<string, { productName: string; searchName: string }>,
+  fileName = "",
 ): Promise<ImportResult> {
   const parsed = parsePurchaseOrders(poBuf, startDate);
   const existing = await loadImportedPOs();
@@ -506,6 +523,23 @@ export async function importPurchaseOrders(
     await setDoc(doc(db, "meta", "companyUpdates"), { updates }, { merge: true });
   }
 
+  // Log this import run (even a 0-new-PO run) so the team can see who last
+  // checked for updates and when — the weekly "PO update history".
+  const historyId = `${Date.now()}`;
+  const historyEntry: ImportHistoryEntry = {
+    id: historyId,
+    timestamp: new Date().toISOString(),
+    importedBy: auth.currentUser?.email || "unknown",
+    fileName,
+    companies,
+    newPOs: newPONumbers.length,
+    newLines: newLineEntries.length,
+    skippedExisting: parsed.poNumbers.length - newPONumbers.length,
+    skippedNoPO: parsed.skippedNoPO,
+    skippedBeforeDate: parsed.skippedBeforeDate,
+  };
+  await setDoc(doc(db, "importHistory", historyId), historyEntry);
+
   return {
     newPOs: newPONumbers.length,
     newLines: newLineEntries.length,
@@ -515,6 +549,12 @@ export async function importPurchaseOrders(
     vendorsUpserted: vendorEntries.length,
     itemsUpserted: itemEntries.length,
   };
+}
+
+/** Fetch the last `limitN` import-history entries, newest first. */
+export async function fetchImportHistory(limitN = 30): Promise<ImportHistoryEntry[]> {
+  const snap = await getDocs(query(collection(db, "importHistory"), orderBy("timestamp", "desc")));
+  return snap.docs.slice(0, limitN).map((d) => d.data() as ImportHistoryEntry);
 }
 
 /** One unit-price observation for an item from a single PO line. */

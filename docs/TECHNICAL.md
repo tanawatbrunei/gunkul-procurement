@@ -280,6 +280,7 @@ allow read, write: if request.auth != null;
 | `items/{itemNumber}` | สรุปสินค้า + สถิติราคาต่อ vendor (cache) | ItemMasterPage | import (procurement.ts) |
 | `meta/poImport` | index เก็บเลข PO ที่ import แล้วทั้งหมด | procurement.ts (กัน import ซ้ำ) | import |
 | `meta/companyUpdates` | วันที่ update ล่าสุดต่อบริษัท | CompanyUpdates | import |
+| `importHistory/{id}` | log การ import แต่ละครั้ง (วันเวลา/ใคร/ไฟล์/จำนวน PO ใหม่) — เขียนทุกครั้งแม้ 0 PO ใหม่ | Item Master → "ประวัติการนำเข้า" | import (procurement.ts) |
 | `meta/trackingSync` | เวลา sync Sheet ล่าสุด (`lastSyncedAt`) | SyncStatus | **Apps Script** (REST) |
 | `trackingTabs/{tabId}` | 1 doc = 1 แท็บ (1 คน) ในชีต | Dashboard, TrackingPage | **Apps Script** |
 | `trackingTabs/{tabId}/rows/{rowId}` | แถว PR/PA/PO แต่ละบรรทัด | TrackingPage, TrackingOverview | **Apps Script** |
@@ -355,7 +356,7 @@ function normalizeHeader(h) { return clean(h).toLowerCase(); }
 | `loadImportedPOs()` | อ่าน `meta/poImport.poNumbers` → Set (ไว้กัน import ซ้ำ) |
 | `loadAllPOLines()` | อ่าน `poLines` ทั้งหมด |
 
-### ★ `importPurchaseOrders(poBuf, startDate, productMap?)` — เส้นทางเขียนหลัก
+### ★ `importPurchaseOrders(poBuf, startDate, productMap?, fileName?)` — เส้นทางเขียนหลัก
 ลำดับการทำงาน:
 1. parse ไฟล์ + โหลดเลข PO ที่มีแล้ว
 2. **merge ตามเลข PO** — เก็บเฉพาะบรรทัดที่ PO ยังไม่เคย import → สร้าง id = `${poNumber}__${seq}`
@@ -366,11 +367,16 @@ function normalizeHeader(h) { return clean(h).toLowerCase(); }
 7. upsert `items` + ลบ item ที่ไม่มีใน PO แล้ว
 8. **stamp `meta/companyUpdates`** = วันนี้ ต่อทุกบริษัทในไฟล์ (แม้ import แล้วได้ 0 PO ใหม่
    ก็ยัง refresh วันที่ → ให้ UI "อัปเดตล่าสุด" แม่นเสมอ)
+9. **เขียน `importHistory/{timestamp}`** = 1 doc ต่อการ import 1 ครั้ง (ใครอัพ/ไฟล์ชื่ออะไร/
+   กี่ PO ใหม่) — เขียนทุกครั้งแม้ผลลัพธ์เป็น 0 PO ใหม่ เพื่อเป็น log "เช็คอัปเดตล่าสุดเมื่อไหร่"
+   ที่ทีมดูได้จากปุ่ม "ประวัติการนำเข้า" ใน Item Master
 
 ### ฟังก์ชันอ่านสำหรับ UI
 - `fetchItemPriceHistory(itemNumber)` — query `poLines` where itemNumber == → ประวัติราคาต่อ vendor
   (กราฟใน ItemMaster)
 - `fetchVendorPOLines(vendorCode)` — โหลด poLines แล้ว filter ฝั่ง client (drill-down ใน Vendor)
+- `fetchImportHistory(limitN?)` — อ่าน `importHistory` เรียงใหม่สุดก่อน (ItemMasterPage ใช้
+  `onSnapshot` ตรงแทน เพื่อให้ real-time)
 
 ---
 
@@ -443,7 +449,7 @@ const [visited, setVisited] = useState(new Set(["home"]));
 | `Dashboard` | `trackingTabs` | (ส่งต่อ) | – | wrapper บางๆ + SyncStatus + TrackingOverview |
 | `TrackingPage` | `trackingTabs/*/rows` | – | ✓ export | **read-only mirror** ของ Sheet, ตาราง sticky, cross-tab search |
 | `ProjectPage` | `kickoffProjects`, `settings/brandOptions` | ✓ ~10 กราฟ | ✓ export | ทะเบียนโครงการ solar, inline-edit, seed ถ้าว่าง |
-| `ItemMasterPage` | `items` (+ `poLines` ตอน drill) | ✓ ราคา | – | เทียบราคาข้าม vendor, **ใช้สีฮาร์ดโค้ดเอง** |
+| `ItemMasterPage` | `items` (+ `poLines` ตอน drill, `importHistory` ตอนเปิด log) | ✓ ราคา | – | เทียบราคาข้าม vendor, search ครอบคลุม vendor/หมวด/part no ด้วย, **ใช้สีฮาร์ดโค้ดเอง** |
 | `VendorPage` | `vendors` (+ `poLines` ตอน drill) | ✓ | ✓ export | directory ผู้ขาย, **ใช้สีฮาร์ดโค้ดเอง** |
 | `KnowledgePage` | `knowledgeDocs` (+ Storage) | – | – | คลัง PDF, incoterms, checklist |
 | `ESGPage` | `esgDocs`/`esgTemplates` (ผ่าน FileVault) | – (CSS bars) | – | static เกือบทั้งหมด, risk matrix ด้วย CSS |
