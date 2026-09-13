@@ -117,7 +117,14 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
         <div style={{ background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)", padding: "26px 30px", borderRadius: "22px 22px 0 0", position: "relative" }}>
           <button onClick={onClose} style={{ position: "absolute", top: "20px", right: "22px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "34px", height: "34px", cursor: "pointer", color: "white", fontSize: "17px" }}>✕</button>
           <p style={{ margin: "0 0 4px", color: "rgba(226,201,126,0.9)", fontSize: "12px", fontWeight: 700 }}>{item.itemNumber} · {item.category || "ไม่ระบุหมวด"}{item.unit ? ` · หน่วย: ${item.unit}` : ""}</p>
-          <h2 style={{ margin: 0, color: "white", fontSize: "19px", fontWeight: 700, lineHeight: 1.35, marginRight: "40px" }}>{item.productName || item.itemNumber}</h2>
+          <h2 style={{ margin: "0 0 8px", color: "white", fontSize: "19px", fontWeight: 700, lineHeight: 1.35, marginRight: "40px" }}>{item.productName || item.itemNumber}</h2>
+          {(item.companies || []).length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {item.companies.map((c) => (
+                <span key={c} style={{ background: "rgba(255,255,255,0.15)", color: "white", padding: "2px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: 700 }}>{c}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ padding: "24px 30px" }}>
@@ -320,6 +327,7 @@ export default function ItemMasterPage() {
           it.itemNumber, it.productName, it.searchName, it.category,
           ...it.vendors.map((v) => v.vendorName),
           ...it.vendors.map((v) => v.vendorCode),
+          ...(it.companies || []),
         ].join(" ").toLowerCase();
         matchSearch = tokens.every((t) => haystack.includes(t));
       }
@@ -350,8 +358,13 @@ export default function ItemMasterPage() {
             <div style={{ flex: 1, minWidth: "300px", display: "flex", flexDirection: "column" }}>
               <span style={{ alignSelf: "flex-start", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.4)", color: "#e2c97e", padding: "4px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em" }}>PROCUREMENT</span>
               <h1 style={{ margin: "10px 0 8px", color: "white", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800 }}>📦 Item Master</h1>
-              <p style={{ margin: 0, color: "rgba(255,255,255,0.55)", fontSize: "15px" }}>เปรียบเทียบราคาสินค้าระหว่าง Vendor จากประวัติการสั่งซื้อจริง</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "auto", paddingTop: "24px" }}>
+              <p style={{ margin: "0 0 16px", color: "rgba(255,255,255,0.55)", fontSize: "15px" }}>เปรียบเทียบราคาสินค้าระหว่าง Vendor จากประวัติการสั่งซื้อจริง</p>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "15px" }}>🔍</span>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาได้เลย — รหัสสินค้า, ชื่อ, Vendor, บริษัท (GKE/GUE/GSC...), หมวดหมู่"
+                  style={{ width: "100%", padding: "13px 14px 13px 38px", borderRadius: "12px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "#1a3c6e" }} />
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "20px" }}>
                 {[
                   { label: "สินค้าทั้งหมด", count: items.length.toLocaleString(), icon: "📦" },
                   { label: "เทียบราคาได้ (>1 Vendor)", count: comparableCount.toLocaleString(), icon: "⚖️" },
@@ -380,12 +393,7 @@ export default function ItemMasterPage() {
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 24px" }}>
         {/* FILTERS */}
         <div style={{ background: "white", borderRadius: "20px", padding: "22px", boxShadow: "0 4px 24px rgba(26,60,110,0.08)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
-            <div>
-              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>🔍 ค้นหา</label>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="รหัสสินค้า, ชื่อ, Vendor, หมวดหมู่ — พิมพ์ได้หลายคำ"
-                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "#1a3c6e" }} />
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", alignItems: "end" }}>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>หมวดหมู่</label>
               <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
@@ -429,8 +437,8 @@ export default function ItemMasterPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)" }}>
-                  {["รหัส", "ชื่อสินค้า", "หมวด", "Vendor", "ราคาเฉลี่ย", "ช่วงราคา", "ยอดซื้อ"].map((h, i) => (
-                    <th key={h} style={{ padding: "13px 14px", textAlign: i >= 3 ? "right" : "left", fontWeight: 700, fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
+                  {["รหัส", "ชื่อสินค้า", "หมวด", "บริษัท", "Vendor", "ราคาเฉลี่ย", "ช่วงราคา", "ยอดซื้อ"].map((h, i) => (
+                    <th key={h} style={{ padding: "13px 14px", textAlign: i >= 4 ? "right" : "left", fontWeight: 700, fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -442,6 +450,14 @@ export default function ItemMasterPage() {
                     <td style={{ padding: "13px 14px", color: "#94a3b8", fontWeight: 700, fontSize: "12px", whiteSpace: "nowrap" }}>{highlight(it.itemNumber, search)}</td>
                     <td style={{ padding: "13px 14px", fontWeight: 700, color: "#1a3c6e", maxWidth: "300px" }}>{highlight(it.productName || it.itemNumber, search)}</td>
                     <td style={{ padding: "13px 14px", color: "#64748b", fontSize: "12px" }}>{it.category || "-"}</td>
+                    <td style={{ padding: "13px 14px" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                        {(it.companies || []).length === 0 && <span style={{ color: "#cbd5e1", fontSize: "12px" }}>-</span>}
+                        {(it.companies || []).map((c) => (
+                          <span key={c} style={{ background: "#eef2ff", color: "#1a3c6e", padding: "1px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 700 }}>{c}</span>
+                        ))}
+                      </div>
+                    </td>
                     <td style={{ padding: "13px 14px", textAlign: "right" }}>
                       <span style={{ background: it.numVendors > 1 ? "#dcfce7" : "#f1f5f9", color: it.numVendors > 1 ? "#16a34a" : "#94a3b8", padding: "2px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 800 }}>{it.numVendors}</span>
                     </td>

@@ -84,6 +84,8 @@ export interface ItemAgg {
   minPrice: number;
   maxPrice: number;
   vendors: ItemVendorStat[];
+  /** Distinct company codes (GKE/GUE/GSC/...) that have bought this item. */
+  companies: string[];
 }
 
 // ---------- Cleaning helpers ----------
@@ -292,6 +294,7 @@ export function aggregateItems(
   // itemNumber → vendorCode → records
   const acc = new Map<string, Map<string, { name: string; prices: { p: number; d: string; po: string }[]; qty: number }>>();
   const meta = new Map<string, { productName: string; category: string; unit: string }>();
+  const companiesByItem = new Map<string, Set<string>>();
   for (const l of lines) {
     if (!l.itemNumber || !countsAsSpend(l.status)) continue;
     if (l.currency && l.currency !== "THB") continue; // compare like-for-like in THB only
@@ -305,6 +308,11 @@ export function aggregateItems(
     const m = meta.get(l.itemNumber);
     if (!m) meta.set(l.itemNumber, { productName: l.productName, category: l.category, unit: l.unit });
     else if (!m.productName && l.productName) m.productName = l.productName;
+    if (l.company) {
+      let cs = companiesByItem.get(l.itemNumber);
+      if (!cs) { cs = new Set(); companiesByItem.set(l.itemNumber, cs); }
+      cs.add(l.company);
+    }
   }
 
   const out = new Map<string, ItemAgg>();
@@ -348,6 +356,7 @@ export function aggregateItems(
       minPrice: Math.min(...allPrices),
       maxPrice: Math.max(...allPrices),
       vendors,
+      companies: [...(companiesByItem.get(itemNumber) ?? [])].sort(),
     });
   }
   return out;
