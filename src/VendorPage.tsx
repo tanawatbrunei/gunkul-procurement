@@ -8,6 +8,12 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, AreaChart, Area, CartesianGrid,
 } from "recharts";
+import {
+  IconX, IconCircleCheck, IconCircleX, IconPlayerPauseFilled, IconAddressBook,
+  IconDeviceFloppy, IconPencil, IconReceipt2, IconMessage, IconTrash, IconLock,
+  IconBuilding, IconCoin, IconFileSpreadsheet, IconUpload, IconSearch,
+  IconLayoutGrid, IconList, IconArrowRight, IconCheck,
+} from "@tabler/icons-react";
 import { fetchVendorPOLines, countsAsSpend, type POLine } from "./data/procurement";
 import { isAdmin } from "./config/admins";
 import ImportModal from "./components/ImportModal";
@@ -223,15 +229,16 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
                 </div>
               )}
             </div>
-            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", color: "white", fontSize: "18px", flexShrink: 0 }}>✕</button>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><IconX size={19} stroke={2} /></button>
           </div>
           <div style={{ marginTop: "16px" }}>
             <button onClick={onToggleStatus} style={{
+              display: "inline-flex", alignItems: "center", gap: "6px",
               padding: "6px 18px", borderRadius: "999px", border: "2px solid",
               borderColor: vendor.status === "active" ? "rgba(226,201,126,0.6)" : "rgba(255,255,255,0.3)",
               background: vendor.status === "active" ? "rgba(226,201,126,0.2)" : "rgba(255,255,255,0.1)",
               color: vendor.status === "active" ? "var(--accent-soft)" : "rgba(255,255,255,0.7)", cursor: "pointer", fontWeight: "700", fontSize: "13px",
-            }}>{vendor.status === "active" ? "✅ Active — คลิกเพื่อเปลี่ยน" : "❌ Inactive — คลิกเพื่อเปลี่ยน"}</button>
+            }}>{vendor.status === "active" ? <IconCircleCheck size={16} stroke={1.75} /> : <IconCircleX size={16} stroke={1.75} />} {vendor.status === "active" ? "Active — คลิกเพื่อเปลี่ยน" : "Inactive — คลิกเพื่อเปลี่ยน"}</button>
           </div>
         </div>
 
@@ -256,8 +263,8 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
 
           <div style={{ marginBottom: "22px", background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <p style={{ margin: 0, fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>📇 ข้อมูลติดต่อ — แก้ไขได้ทุกคน</p>
-              {contactSaved && <span style={{ fontSize: "11px", color: "var(--success)", fontWeight: "700" }}>✓ บันทึกแล้ว</span>}
+              <p style={{ margin: 0, fontSize: "11px", color: "var(--text-faint)", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}><IconAddressBook size={14} stroke={1.75} /> ข้อมูลติดต่อ — แก้ไขได้ทุกคน</p>
+              {contactSaved && <span style={{ fontSize: "11px", color: "var(--success)", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}><IconCheck size={14} stroke={2} /> บันทึกแล้ว</span>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
               <div>
@@ -276,8 +283,8 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
               <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="name@company.com"
                 style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid var(--border)", fontSize: "13px", boxSizing: "border-box", color: "var(--primary)", background: "var(--surface)" }} />
             </div>
-            <button onClick={saveContact} style={{ width: "100%", padding: "9px", background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", color: "white", fontSize: "13px" }}>
-              💾 บันทึกข้อมูลติดต่อ
+            <button onClick={saveContact} style={{ width: "100%", padding: "9px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", color: "white", fontSize: "13px" }}>
+              <IconDeviceFloppy size={15} stroke={1.75} /> บันทึกข้อมูลติดต่อ
             </button>
           </div>
 
@@ -331,8 +338,8 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
               <p style={{ margin: 0, fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>หมวดหมู่ ({cats.length})</p>
               {!editingCats
-                ? <button onClick={() => setEditingCats(true)} style={{ background: "none", border: "1px solid var(--border)", color: "var(--primary)", borderRadius: "8px", padding: "4px 12px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}>✏️ แก้หมวด</button>
-                : <button onClick={() => { onSaveCategories(cats); setEditingCats(false); }} style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", border: "none", color: "white", borderRadius: "8px", padding: "4px 14px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}>💾 บันทึก</button>}
+                ? <button onClick={() => setEditingCats(true)} style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "none", border: "1px solid var(--border)", color: "var(--primary)", borderRadius: "8px", padding: "4px 12px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}><IconPencil size={13} stroke={1.75} /> แก้หมวด</button>
+                : <button onClick={() => { onSaveCategories(cats); setEditingCats(false); }} style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", border: "none", color: "white", borderRadius: "8px", padding: "4px 14px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}><IconDeviceFloppy size={13} stroke={1.75} /> บันทึก</button>}
             </div>
             {!editingCats ? (
               cats.length ? <CategoryChips cats={cats} /> : <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "13px" }}>ยังไม่มีหมวด</p>
@@ -341,10 +348,11 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
                 {CATEGORIES.map(c => {
                   const on = cats.includes(c); const cc = catColor(c);
                   return <button key={c} onClick={() => toggleCat(c)} style={{
+                    display: "inline-flex", alignItems: "center", gap: "4px",
                     padding: "5px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: "700", cursor: "pointer",
                     border: on ? `2px solid ${cc.color}` : "1.5px solid var(--border)",
-                    background: on ? cc.bg : "white", color: on ? cc.color : "var(--text-faint)",
-                  }}>{on ? "✓ " : ""}{c}</button>;
+                    background: on ? cc.bg : "var(--surface)", color: on ? cc.color : "var(--text-faint)",
+                  }}>{on && <IconCheck size={12} stroke={2.5} />}{c}</button>;
                 })}
               </div>
             )}
@@ -352,8 +360,8 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
 
           {/* PO HISTORY */}
           <div style={{ marginBottom: "22px" }}>
-            <p style={{ margin: "0 0 10px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>
-              🧾 ประวัติใบสั่งซื้อ {poGroups.length > 0 && `(${poGroups.length} PO)`}
+            <p style={{ margin: "0 0 10px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
+              <IconReceipt2 size={14} stroke={1.75} /> ประวัติใบสั่งซื้อ {poGroups.length > 0 && `(${poGroups.length} PO)`}
             </p>
             {poLines === null ? (
               <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "13px" }}>กำลังโหลด...</p>
@@ -399,16 +407,16 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
           </div>
 
           <div style={{ marginBottom: "22px" }}>
-            <p style={{ margin: "0 0 8px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>💬 หมายเหตุ</p>
+            <p style={{ margin: "0 0 8px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}><IconMessage size={14} stroke={1.75} /> หมายเหตุ</p>
             <textarea value={note} onChange={e => setNote(e.target.value)} onBlur={() => onSaveNote(note)} rows={2}
               placeholder="พิมพ์หมายเหตุ แล้วคลิกที่อื่นเพื่อบันทึก..."
               style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid var(--border)", boxSizing: "border-box", resize: "vertical", fontSize: "14px", color: "var(--primary)", background: "var(--surface)" }} />
           </div>
 
           {isAdmin(auth.currentUser?.email) ? (
-            <button onClick={onDelete} style={{ width: "100%", padding: "13px", background: "color-mix(in srgb, var(--danger) 10%, var(--surface))", border: "1px solid color-mix(in srgb, var(--danger) 35%, var(--surface))", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "var(--danger)", fontSize: "14px" }}>🗑️ ลบ Vendor นี้</button>
+            <button onClick={onDelete} style={{ width: "100%", padding: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "color-mix(in srgb, var(--danger) 10%, var(--surface))", border: "1px solid color-mix(in srgb, var(--danger) 35%, var(--surface))", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "var(--danger)", fontSize: "14px" }}><IconTrash size={16} stroke={1.75} /> ลบ Vendor นี้</button>
           ) : (
-            <p style={{ margin: 0, fontSize: "12px", color: "var(--text-faint)", textAlign: "center" }}>🔒 การลบ Vendor ทำได้เฉพาะ admin — ติดต่อผู้ดูแลระบบถ้าต้องการลบ</p>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--text-faint)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}><IconLock size={13} stroke={1.75} /> การลบ Vendor ทำได้เฉพาะ admin — ติดต่อผู้ดูแลระบบถ้าต้องการลบ</p>
           )}
         </div>
       </div>
@@ -575,17 +583,17 @@ export default function VendorPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", flexWrap: "wrap", gap: "20px" }}>
             <div style={{ flex: 1, minWidth: "300px", display: "flex", flexDirection: "column" }}>
               <span style={{ alignSelf: "flex-start", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.4)", color: "var(--accent-soft)", padding: "4px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: "700", letterSpacing: "0.08em" }}>PROCUREMENT</span>
-              <h1 style={{ margin: "10px 0 8px", color: "white", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: "800" }}>🏢 Vendor Directory</h1>
+              <h1 style={{ margin: "10px 0 8px", color: "white", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: "800", display: "flex", alignItems: "center", gap: "12px" }}><IconBuilding size={32} stroke={1.75} /> Vendor Directory</h1>
               <p style={{ margin: 0, color: "rgba(255,255,255,0.55)", fontSize: "15px" }}>ฐานข้อมูล Vendor จากประวัติการสั่งซื้อจริง</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "auto", paddingTop: "24px" }}>
                 {[
-                  { label: "Vendor ทั้งหมด", count: vendors.length.toLocaleString(), icon: "🏢" },
-                  { label: "Active", count: vendors.filter(v => v.status === "active").length.toLocaleString(), icon: "✅" },
-                  { label: "Inactive", count: vendors.filter(v => v.status === "inactive").length.toLocaleString(), icon: "⏸️" },
-                  { label: "มูลค่าซื้อรวม", count: bahtShort(totalSpendAll), icon: "💰" },
+                  { label: "Vendor ทั้งหมด", count: vendors.length.toLocaleString(), icon: IconBuilding },
+                  { label: "Active", count: vendors.filter(v => v.status === "active").length.toLocaleString(), icon: IconCircleCheck },
+                  { label: "Inactive", count: vendors.filter(v => v.status === "inactive").length.toLocaleString(), icon: IconPlayerPauseFilled },
+                  { label: "มูลค่าซื้อรวม", count: bahtShort(totalSpendAll), icon: IconCoin },
                 ].map(s => (
                   <div key={s.label} style={{ flex: "1 1 140px", background: "rgba(255,255,255,0.08)", backdropFilter: "blur(8px)", borderRadius: "14px", padding: "16px 20px", border: "1px solid rgba(255,255,255,0.12)" }}>
-                    <p style={{ margin: "0 0 4px", color: "rgba(255,255,255,0.6)", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap" }}>{s.icon} {s.label}</p>
+                    <p style={{ margin: "0 0 4px", color: "rgba(255,255,255,0.6)", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}><s.icon size={14} stroke={1.75} /> {s.label}</p>
                     <p style={{ margin: 0, fontSize: "26px", fontWeight: "800", color: "white" }}>{s.count}</p>
                   </div>
                 ))}
@@ -593,11 +601,11 @@ export default function VendorPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "12px", width: "250px", flexShrink: 0 }}>
               <div style={{ display: "flex", gap: "8px", alignSelf: "flex-end" }}>
-                <button onClick={exportToExcel} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", color: "white", padding: "10px 16px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
-                  📊 Export
+                <button onClick={exportToExcel} style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", color: "white", padding: "10px 16px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
+                  <IconFileSpreadsheet size={16} stroke={1.75} /> Export
                 </button>
-                <button onClick={() => setShowImport(true)} style={{ background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "var(--accent-soft)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
-                  📥 นำเข้าข้อมูล
+                <button onClick={() => setShowImport(true)} style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "var(--accent-soft)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
+                  <IconUpload size={16} stroke={1.75} /> นำเข้าข้อมูล
                 </button>
               </div>
               <CompanyUpdates />
@@ -611,7 +619,7 @@ export default function VendorPage() {
         {!loading && vendors.length > 0 && (
           <div style={{ marginBottom: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "var(--primary)" }}>📊 ภาพรวมการจัดซื้อ</h2>
+              <h2 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "var(--primary)", display: "flex", alignItems: "center", gap: "8px" }}><IconFileSpreadsheet size={19} stroke={1.75} /> ภาพรวมการจัดซื้อ</h2>
               <button onClick={() => setShowCharts(s => !s)} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "6px 14px", cursor: "pointer", fontSize: "13px", fontWeight: "700", color: "var(--text-muted)" }}>{showCharts ? "ซ่อน ▲" : "แสดง ▼"}</button>
             </div>
             {showCharts && (
@@ -666,14 +674,17 @@ export default function VendorPage() {
         <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "var(--shadow)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
             <div>
-              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>🔍 ค้นหา</label>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ชื่อบริษัท, รหัส, หมวดหมู่..."
-                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "var(--bg-elevated)", color: "var(--primary)" }}
-                onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
-                onBlur={e => { e.target.style.borderColor = "var(--accent-soft)"; }} />
+              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>ค้นหา</label>
+              <div style={{ position: "relative" }}>
+                <IconSearch size={15} stroke={2} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--navy)" }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ชื่อบริษัท, รหัส, หมวดหมู่..."
+                  style={{ width: "100%", padding: "11px 14px 11px 34px", borderRadius: "10px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "var(--bg-elevated)", color: "var(--primary)" }}
+                  onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--accent-soft)"; }} />
+              </div>
             </div>
             {[
-              { label: "🏢 บริษัท", value: filterCompany, setter: setFilterCompany, options: companyOptions },
+              { label: "บริษัท", value: filterCompany, setter: setFilterCompany, options: companyOptions },
               { label: "หมวดหมู่", value: filterCategory, setter: setFilterCategory, options: ["ทั้งหมด", ...CATEGORIES] },
               { label: "กลุ่ม", value: filterGroup, setter: setFilterGroup, options: ["ทั้งหมด", "LOCAL", "GROUP", "OVERSEA", "EMP"] },
               { label: "สถานะ", value: filterStatus, setter: setFilterStatus, options: ["ทั้งหมด", "active", "inactive"] },
@@ -701,12 +712,13 @@ export default function VendorPage() {
             <div style={{ display: "flex", gap: "8px" }}>
               {(["card", "table"] as ViewMode[]).map(m => (
                 <button key={m} onClick={() => setViewMode(m)} style={{
+                  display: "inline-flex", alignItems: "center", gap: "6px",
                   padding: "7px 16px", borderRadius: "8px", border: "1.5px solid",
                   borderColor: viewMode === m ? "var(--navy)" : "var(--border)",
                   background: viewMode === m ? "var(--navy)" : "var(--surface)",
                   color: viewMode === m ? "white" : "var(--text-faint)",
                   cursor: "pointer", fontWeight: "700", fontSize: "13px",
-                }}>{m === "card" ? "⊞ Card" : "☰ Table"}</button>
+                }}>{m === "card" ? <IconLayoutGrid size={15} stroke={1.75} /> : <IconList size={15} stroke={1.75} />} {m === "card" ? "Card" : "Table"}</button>
               ))}
             </div>
           </div>
@@ -720,7 +732,7 @@ export default function VendorPage() {
 
         {!loading && filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "80px 40px", background: "var(--surface)", borderRadius: "20px", boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: "64px", marginBottom: "16px" }}>🏢</div>
+            <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center", color: "var(--text-faint)" }}><IconBuilding size={56} stroke={1.25} /></div>
             <h3 style={{ margin: "0 0 8px", color: "var(--primary)", fontSize: "20px", fontWeight: "700" }}>
               {vendors.length === 0 ? "ยังไม่มีข้อมูล Vendor" : "ไม่พบ Vendor"}
             </h3>
@@ -745,12 +757,13 @@ export default function VendorPage() {
                     <h3 style={{ margin: 0, color: "var(--primary)", fontSize: "15px", fontWeight: "700", lineHeight: "1.35" }}>{highlight(v.name, search)}</h3>
                   </div>
                   <button onClick={e => { e.stopPropagation(); handleToggleStatus(v); }} style={{
+                    display: "inline-flex", alignItems: "center", gap: "4px",
                     background: v.status === "active" ? "color-mix(in srgb, var(--accent) 18%, var(--surface))" : "var(--surface-2)",
                     color: v.status === "active" ? "var(--accent)" : "var(--text-faint)",
                     padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
                     border: v.status === "active" ? "1px solid var(--accent-soft)" : "1px solid var(--border)",
                     cursor: "pointer", whiteSpace: "nowrap",
-                  }}>{v.status === "active" ? "✅ Active" : "⏸ Inactive"}</button>
+                  }}>{v.status === "active" ? <IconCircleCheck size={13} stroke={1.75} /> : <IconPlayerPauseFilled size={11} stroke={1.75} />} {v.status === "active" ? "Active" : "Inactive"}</button>
                 </div>
                 <div style={{ height: "1px", background: "linear-gradient(90deg, color-mix(in srgb, var(--accent-soft) 20%, transparent), transparent)", margin: "12px 0" }} />
                 <div style={{ marginBottom: "14px" }}><CategoryChips cats={v.categories} max={3} search={search} /></div>
@@ -767,7 +780,7 @@ export default function VendorPage() {
                   ))}
                 </div>
                 <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
-                  <span style={{ fontSize: "12px", color: "var(--text-faint)" }}>คลิกดูกราฟ / แก้หมวด →</span>
+                  <span style={{ fontSize: "12px", color: "var(--text-faint)", display: "inline-flex", alignItems: "center", gap: "4px" }}>คลิกดูกราฟ / แก้หมวด <IconArrowRight size={13} stroke={1.75} /></span>
                 </div>
               </div>
             ))}
@@ -799,11 +812,12 @@ export default function VendorPage() {
                     <td style={{ padding: "14px 16px", color: "var(--text-muted)" }}>{v.lastPurchase}</td>
                     <td style={{ padding: "14px 16px" }}>
                       <button onClick={e => { e.stopPropagation(); handleToggleStatus(v); }} style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
                         background: v.status === "active" ? "color-mix(in srgb, var(--accent) 18%, var(--surface))" : "var(--surface-2)",
                         color: v.status === "active" ? "var(--accent)" : "var(--text-faint)",
                         padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
                         border: v.status === "active" ? "1px solid var(--accent-soft)" : "1px solid var(--border)", cursor: "pointer",
-                      }}>{v.status === "active" ? "✅" : "⏸"}</button>
+                      }}>{v.status === "active" ? <IconCircleCheck size={14} stroke={1.75} /> : <IconPlayerPauseFilled size={12} stroke={1.75} />}</button>
                     </td>
                   </tr>
                 ))}

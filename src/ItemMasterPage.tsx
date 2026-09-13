@@ -3,6 +3,10 @@ import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import {
+  IconX, IconBulb, IconChartLine, IconClock, IconPackage, IconSearch,
+  IconScale, IconTag, IconUpload,
+} from "@tabler/icons-react";
 import { db } from "./firebase";
 import { fetchItemPriceHistory } from "./data/procurement";
 import type { ItemAgg, ItemVendorStat, PricePoint, ImportHistoryEntry } from "./data/procurement";
@@ -115,7 +119,7 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: "22px", width: "720px", maxWidth: "95vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", padding: "26px 30px", borderRadius: "22px 22px 0 0", position: "relative" }}>
-          <button onClick={onClose} style={{ position: "absolute", top: "20px", right: "22px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "34px", height: "34px", cursor: "pointer", color: "white", fontSize: "17px" }}>✕</button>
+          <button onClick={onClose} style={{ position: "absolute", top: "20px", right: "22px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "34px", height: "34px", cursor: "pointer", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}><IconX size={18} stroke={2} /></button>
           <p style={{ margin: "0 0 4px", color: "rgba(226,201,126,0.9)", fontSize: "12px", fontWeight: 700 }}>{item.itemNumber} · {item.category || "ไม่ระบุหมวด"}{item.unit ? ` · หน่วย: ${item.unit}` : ""}</p>
           <h2 style={{ margin: "0 0 8px", color: "white", fontSize: "19px", fontWeight: 700, lineHeight: 1.35, marginRight: "40px" }}>{item.productName || item.itemNumber}</h2>
           {(item.companies || []).length > 0 && (
@@ -143,10 +147,11 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
           </div>
 
           {spread(item) > 0.001 && (
-            <p style={{ margin: "0 0 16px", fontSize: "13px", color: "var(--text-muted)", background: "color-mix(in srgb, var(--warning) 12%, var(--surface))", border: "1px solid color-mix(in srgb, var(--warning) 40%, var(--surface))", borderRadius: "10px", padding: "10px 14px" }}>
-              💡 ส่วนต่างราคาต่ำสุด–สูงสุด <strong style={{ color: "var(--warning)" }}>{(spread(item) * 100).toFixed(0)}%</strong>
-              {" "}— เลือก vendor ที่ถูกที่สุดประหยัดได้ <strong style={{ color: "var(--success)" }}>{baht(item.maxPrice - item.minPrice)}</strong>/หน่วย
-            </p>
+            <div style={{ margin: "0 0 16px", fontSize: "13px", color: "var(--text-muted)", background: "color-mix(in srgb, var(--warning) 12%, var(--surface))", border: "1px solid color-mix(in srgb, var(--warning) 40%, var(--surface))", borderRadius: "10px", padding: "10px 14px", display: "flex", alignItems: "flex-start", gap: "8px" }}>
+              <IconBulb size={16} stroke={1.75} style={{ flexShrink: 0, marginTop: "1px", color: "var(--warning)" }} />
+              <span>ส่วนต่างราคาต่ำสุด–สูงสุด <strong style={{ color: "var(--warning)" }}>{(spread(item) * 100).toFixed(0)}%</strong>
+              {" "}— เลือก vendor ที่ถูกที่สุดประหยัดได้ <strong style={{ color: "var(--success)" }}>{baht(item.maxPrice - item.minPrice)}</strong>/หน่วย</span>
+            </div>
           )}
 
           <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 800, color: "var(--primary)" }}>เปรียบเทียบราคาต่อหน่วยแต่ละ Vendor ({unitLabel} · เรียงจากถูกสุด)</p>
@@ -181,8 +186,8 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-muted)" }}>{v.count}×</td>
                       <td style={{ padding: "10px 12px", textAlign: "right" }}>
                         <button onClick={() => toggleHistory(v.vendorCode)}
-                          style={{ background: open ? "var(--navy)" : "var(--surface-2)", color: open ? "white" : "var(--primary)", border: "none", borderRadius: "8px", padding: "5px 10px", fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                          📈 ประวัติ {open ? "▲" : "▼"}
+                          style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: open ? "var(--navy)" : "var(--surface-2)", color: open ? "white" : "var(--primary)", border: "none", borderRadius: "8px", padding: "5px 10px", fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          <IconChartLine size={13} stroke={2} /> ประวัติ {open ? "▲" : "▼"}
                         </button>
                       </td>
                     </tr>
@@ -240,8 +245,8 @@ function ImportHistoryModal({ onClose }: { onClose: () => void }) {
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: "22px", width: "680px", maxWidth: "95vw", maxHeight: "85vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", padding: "22px 28px", borderRadius: "22px 22px 0 0", position: "relative" }}>
-          <button onClick={onClose} style={{ position: "absolute", top: "18px", right: "20px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "32px", height: "32px", cursor: "pointer", color: "white", fontSize: "16px" }}>✕</button>
-          <h2 style={{ margin: 0, color: "white", fontSize: "18px", fontWeight: 800 }}>🕐 ประวัติการนำเข้าข้อมูล PO</h2>
+          <button onClick={onClose} style={{ position: "absolute", top: "18px", right: "20px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "32px", height: "32px", cursor: "pointer", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}><IconX size={16} stroke={2} /></button>
+          <h2 style={{ margin: 0, color: "white", fontSize: "18px", fontWeight: 800, display: "flex", alignItems: "center", gap: "8px" }}><IconClock size={20} stroke={1.75} /> ประวัติการนำเข้าข้อมูล PO</h2>
           <p style={{ margin: "6px 0 0", color: "rgba(255,255,255,0.65)", fontSize: "12px" }}>ทุกครั้งที่มีการนำเข้าไฟล์ (แม้ไม่มี PO ใหม่) จะถูกบันทึกไว้ที่นี่</p>
         </div>
         <div style={{ padding: "20px 28px" }}>
@@ -365,32 +370,32 @@ export default function ItemMasterPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", flexWrap: "wrap", gap: "20px" }}>
             <div style={{ flex: 1, minWidth: "300px", display: "flex", flexDirection: "column" }}>
               <span style={{ alignSelf: "flex-start", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.4)", color: "var(--accent-soft)", padding: "4px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em" }}>PROCUREMENT</span>
-              <h1 style={{ margin: "10px 0 8px", color: "white", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800 }}>📦 Item Master</h1>
+              <h1 style={{ margin: "10px 0 8px", color: "white", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 800, display: "flex", alignItems: "center", gap: "12px" }}><IconPackage size={32} stroke={1.75} /> Item Master</h1>
               <p style={{ margin: "0 0 16px", color: "rgba(255,255,255,0.55)", fontSize: "15px" }}>เปรียบเทียบราคาสินค้าระหว่าง Vendor จากประวัติการสั่งซื้อจริง</p>
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", fontSize: "15px" }}>🔍</span>
+                <IconSearch size={16} stroke={2} style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--navy)" }} />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาได้เลย — รหัสสินค้า, ชื่อ, Vendor, บริษัท (GKE/GUE/GSC...), หมวดหมู่"
                   style={{ width: "100%", padding: "13px 14px 13px 38px", borderRadius: "12px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "var(--navy)" }} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "20px" }}>
                 {[
-                  { label: "สินค้าทั้งหมด", count: items.length.toLocaleString(), icon: "📦" },
-                  { label: "เทียบราคาได้ (>1 Vendor)", count: comparableCount.toLocaleString(), icon: "⚖️" },
-                  { label: "หมวดหมู่", count: (categories.length - 1).toLocaleString(), icon: "🏷️" },
+                  { label: "สินค้าทั้งหมด", count: items.length.toLocaleString(), icon: IconPackage },
+                  { label: "เทียบราคาได้ (>1 Vendor)", count: comparableCount.toLocaleString(), icon: IconScale },
+                  { label: "หมวดหมู่", count: (categories.length - 1).toLocaleString(), icon: IconTag },
                 ].map((s) => (
                   <div key={s.label} style={{ flex: "1 1 140px", background: "rgba(255,255,255,0.08)", backdropFilter: "blur(8px)", borderRadius: "14px", padding: "16px 20px", border: "1px solid rgba(255,255,255,0.12)" }}>
-                    <p style={{ margin: "0 0 4px", color: "rgba(255,255,255,0.6)", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap" }}>{s.icon} {s.label}</p>
+                    <p style={{ margin: "0 0 4px", color: "rgba(255,255,255,0.6)", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "6px" }}><s.icon size={14} stroke={1.75} /> {s.label}</p>
                     <p style={{ margin: 0, fontSize: "24px", fontWeight: 800, color: "white" }}>{s.count}</p>
                   </div>
                 ))}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "12px", width: "250px", flexShrink: 0 }}>
-              <button onClick={() => setShowImport(true)} style={{ alignSelf: "flex-end", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "var(--accent-soft)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 700, fontSize: "14px" }}>
-                📥 นำเข้าข้อมูล
+              <button onClick={() => setShowImport(true)} style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "var(--accent-soft)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 700, fontSize: "14px" }}>
+                <IconUpload size={16} stroke={1.75} /> นำเข้าข้อมูล
               </button>
-              <button onClick={() => setShowHistory(true)} style={{ alignSelf: "flex-end", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.85)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 700, fontSize: "14px" }}>
-                🕐 ประวัติการนำเข้า
+              <button onClick={() => setShowHistory(true)} style={{ alignSelf: "flex-end", display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.85)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 700, fontSize: "14px" }}>
+                <IconClock size={16} stroke={1.75} /> ประวัติการนำเข้า
               </button>
               <CompanyUpdates />
             </div>
@@ -403,7 +408,7 @@ export default function ItemMasterPage() {
         <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "var(--shadow)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
             <div>
-              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "var(--text-faint)" }}>🏢 บริษัท</label>
+              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "var(--text-faint)" }}>บริษัท</label>
               <select value={filterCompany} onChange={(e) => setFilterCompany(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid var(--border)", fontSize: "13px", color: "var(--primary)", background: "var(--surface)" }}>
                 {companyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -430,7 +435,7 @@ export default function ItemMasterPage() {
             </p>
             <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--text-muted)", cursor: "pointer", fontWeight: 700 }}>
               <input type="checkbox" checked={comparableOnly} onChange={(e) => setComparableOnly(e.target.checked)} />
-              ⚖️ เฉพาะที่เทียบราคาได้
+              <IconScale size={14} stroke={1.75} /> เฉพาะที่เทียบราคาได้
             </label>
           </div>
         </div>
@@ -439,7 +444,7 @@ export default function ItemMasterPage() {
 
         {!loading && filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "80px 40px", background: "var(--surface)", borderRadius: "20px", boxShadow: "var(--shadow)" }}>
-            <div style={{ fontSize: "64px", marginBottom: "16px" }}>📦</div>
+            <div style={{ marginBottom: "16px", display: "flex", justifyContent: "center", color: "var(--text-faint)" }}><IconPackage size={56} stroke={1.25} /></div>
             <h3 style={{ margin: "0 0 8px", color: "var(--primary)", fontSize: "20px", fontWeight: 700 }}>{items.length === 0 ? "ยังไม่มีข้อมูลสินค้า" : "ไม่พบสินค้า"}</h3>
             <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "15px" }}>{items.length === 0 ? "กดปุ่ม “นำเข้าข้อมูล” เพื่ออัพโหลดไฟล์ PO" : "ลองเปลี่ยน keyword หรือ filter"}</p>
           </div>
