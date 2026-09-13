@@ -540,21 +540,29 @@ export async function importPurchaseOrders(
   }
 
   // Log this import run (even a 0-new-PO run) so the team can see who last
-  // checked for updates and when — the weekly "PO update history".
-  const historyId = `${Date.now()}`;
-  const historyEntry: ImportHistoryEntry = {
-    id: historyId,
-    timestamp: new Date().toISOString(),
-    importedBy: auth.currentUser?.email || "unknown",
-    fileName,
-    companies,
-    newPOs: newPONumbers.length,
-    newLines: newLineEntries.length,
-    skippedExisting: parsed.poNumbers.length - newPONumbers.length,
-    skippedNoPO: parsed.skippedNoPO,
-    skippedBeforeDate: parsed.skippedBeforeDate,
-  };
-  await setDoc(doc(db, "importHistory", historyId), historyEntry);
+  // checked for updates and when — the weekly "PO update history". This is a
+  // nice-to-have on top of the real import above (poLines/vendors/items/
+  // companyUpdates), which has already fully succeeded by this point — never
+  // let a failure here (e.g. a Firestore rules deploy the team forgot to
+  // publish) surface as if the whole import failed.
+  try {
+    const historyId = `${Date.now()}`;
+    const historyEntry: ImportHistoryEntry = {
+      id: historyId,
+      timestamp: new Date().toISOString(),
+      importedBy: auth.currentUser?.email || "unknown",
+      fileName,
+      companies,
+      newPOs: newPONumbers.length,
+      newLines: newLineEntries.length,
+      skippedExisting: parsed.poNumbers.length - newPONumbers.length,
+      skippedNoPO: parsed.skippedNoPO,
+      skippedBeforeDate: parsed.skippedBeforeDate,
+    };
+    await setDoc(doc(db, "importHistory", historyId), historyEntry);
+  } catch (e) {
+    console.error("importHistory log failed (import itself already succeeded):", e);
+  }
 
   return {
     newPOs: newPONumbers.length,
