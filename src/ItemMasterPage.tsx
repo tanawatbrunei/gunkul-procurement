@@ -286,6 +286,7 @@ export default function ItemMasterPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("ทั้งหมด");
+  const [filterCompany, setFilterCompany] = useState("ทั้งหมด");
   const [comparableOnly, setComparableOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("spend");
   const [detail, setDetail] = useState<ItemAgg | null>(null);
@@ -315,6 +316,12 @@ export default function ItemMasterPage() {
     return ["ทั้งหมด", ...[...set].sort()];
   }, [items]);
 
+  const companyOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) for (const c of it.companies || []) set.add(c);
+    return ["ทั้งหมด", ...[...set].sort()];
+  }, [items]);
+
   const filtered = useMemo(() => {
     // Multi-token AND match across item code/name, category, and every vendor
     // that sells it — so "solar huawei" finds an item by combining a product
@@ -332,15 +339,16 @@ export default function ItemMasterPage() {
         matchSearch = tokens.every((t) => haystack.includes(t));
       }
       const matchCat = filterCat === "ทั้งหมด" || it.category === filterCat;
+      const matchCompany = filterCompany === "ทั้งหมด" || (it.companies || []).includes(filterCompany);
       const matchCmp = !comparableOnly || it.numVendors > 1;
-      return matchSearch && matchCat && matchCmp;
+      return matchSearch && matchCat && matchCompany && matchCmp;
     }).sort((a, b) => {
       if (sortKey === "name") return (a.productName || a.itemNumber).localeCompare(b.productName || b.itemNumber, "th");
       if (sortKey === "vendors") return b.numVendors - a.numVendors;
       if (sortKey === "qty") return b.totalQty - a.totalQty;
       return b.totalSpend - a.totalSpend;
     });
-  }, [items, search, filterCat, comparableOnly, sortKey]);
+  }, [items, search, filterCat, filterCompany, comparableOnly, sortKey]);
 
   const comparableCount = useMemo(() => items.filter((it) => it.numVendors > 1).length, [items]);
 
@@ -393,7 +401,13 @@ export default function ItemMasterPage() {
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 24px" }}>
         {/* FILTERS */}
         <div style={{ background: "white", borderRadius: "20px", padding: "22px", boxShadow: "0 4px 24px rgba(26,60,110,0.08)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
+            <div>
+              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>🏢 บริษัท</label>
+              <select value={filterCompany} onChange={(e) => setFilterCompany(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
+                {companyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>หมวดหมู่</label>
               <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
