@@ -53,6 +53,9 @@ export interface VendorAgg {
   topProject: string;
   categorySpend: Record<string, number>;
   monthlySpend: Record<string, number>;
+  /** Distinct company codes (GKE/GUE/GSC/...) that have bought from this
+   *  vendor — a vendor can supply more than one company. */
+  companies: string[];
 }
 
 /** Per-vendor price stats for one item (apple-to-apple comparison). */
@@ -246,7 +249,7 @@ function topKey(counts: Record<string, number>): string {
 /** Recompute vendor aggregates from all poLines. */
 export function aggregateVendors(lines: POLine[]): Map<string, VendorAgg> {
   const acc = new Map<string, {
-    v: VendorAgg; pos: Set<string>;
+    v: VendorAgg; pos: Set<string>; companies: Set<string>;
     terms: Record<string, number>; projects: Record<string, number>;
   }>();
   for (const l of lines) {
@@ -257,9 +260,9 @@ export function aggregateVendors(lines: POLine[]): Map<string, VendorAgg> {
         v: {
           vendorCode: l.vendorCode, name: l.vendorName, vendorGroup: l.vendorGroup,
           totalSpend: 0, numPOs: 0, lastPurchase: "", topPaymentTerms: "", topProject: "",
-          categorySpend: {}, monthlySpend: {},
+          categorySpend: {}, monthlySpend: {}, companies: [],
         },
-        pos: new Set(), terms: {}, projects: {},
+        pos: new Set(), companies: new Set(), terms: {}, projects: {},
       };
       acc.set(l.vendorCode, e);
     }
@@ -275,12 +278,14 @@ export function aggregateVendors(lines: POLine[]): Map<string, VendorAgg> {
     }
     if (l.paymentTerms) e.terms[l.paymentTerms] = (e.terms[l.paymentTerms] || 0) + 1;
     if (l.project) e.projects[l.project] = (e.projects[l.project] || 0) + 1;
+    if (l.company) e.companies.add(l.company);
   }
   const out = new Map<string, VendorAgg>();
   for (const [code, e] of acc) {
     e.v.numPOs = e.pos.size;
     e.v.topPaymentTerms = topKey(e.terms);
     e.v.topProject = topKey(e.projects);
+    e.v.companies = [...e.companies].sort();
     out.set(code, e.v);
   }
   return out;
@@ -500,6 +505,7 @@ export async function importPurchaseOrders(
         totalSpend: v.totalSpend, numPOs: v.numPOs, lastPurchase: v.lastPurchase,
         topPaymentTerms: v.topPaymentTerms, topProject: v.topProject,
         categorySpend: v.categorySpend, monthlySpend: v.monthlySpend,
+        companies: v.companies,
         source: "po-import",
       } as Record<string, unknown>,
       id,
