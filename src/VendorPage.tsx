@@ -111,7 +111,7 @@ function highlight(text: string, search: string) {
     <span>
       {parts.map((p, i) =>
         p.toLowerCase() === search.toLowerCase()
-          ? <mark key={i} style={{ background: "#e2c97e", borderRadius: "2px", padding: "0 2px", color: "#1a3c6e" }}>{p}</mark>
+          ? <mark key={i} style={{ background: "var(--accent-soft)", borderRadius: "2px", padding: "0 2px", color: "var(--navy)" }}>{p}</mark>
           : p
       )}
     </span>
@@ -120,9 +120,9 @@ function highlight(text: string, search: string) {
 
 function SkeletonCard() {
   return (
-    <div style={{ background: "white", borderRadius: "16px", padding: "24px", boxShadow: "0 2px 12px rgba(26,60,110,0.08)", borderTop: "3px solid #e2e8f0" }}>
+    <div style={{ background: "var(--surface)", borderRadius: "16px", padding: "24px", boxShadow: "var(--shadow-sm)", borderTop: "3px solid var(--border)" }}>
       {[70, 40, 80, 60, 50].map((w, i) => (
-        <div key={i} style={{ height: "11px", background: "linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9)", backgroundSize: "200% 100%", borderRadius: "6px", width: `${w}%`, marginBottom: "14px", animation: "shimmer 1.5s infinite" }} />
+        <div key={i} style={{ height: "11px", background: "linear-gradient(90deg, var(--surface-2), var(--border), var(--surface-2))", backgroundSize: "200% 100%", borderRadius: "6px", width: `${w}%`, marginBottom: "14px", animation: "shimmer 1.5s infinite" }} />
       ))}
     </div>
   );
@@ -139,16 +139,16 @@ function CategoryChips({ cats, max, search }: { cats: string[]; max?: number; se
           {search ? highlight(c, search) : c}
         </span>;
       })}
-      {extra > 0 && <span style={{ background: "#1a3c6e", color: "white", padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>+{extra}</span>}
+      {extra > 0 && <span style={{ background: "var(--primary)", color: "white", padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>+{extra}</span>}
     </div>
   );
 }
 
 function ChartCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "white", borderRadius: "16px", padding: "20px", boxShadow: "0 4px 20px rgba(26,60,110,0.07)", border: "1px solid #eef2f7" }}>
-      <p style={{ margin: "0 0 2px", fontSize: "14px", fontWeight: "800", color: "#1a3c6e" }}>{title}</p>
-      {hint && <p style={{ margin: "0 0 14px", fontSize: "12px", color: "#94a3b8" }}>{hint}</p>}
+    <div style={{ background: "var(--surface)", borderRadius: "16px", padding: "20px", boxShadow: "var(--shadow)", border: "1px solid var(--border)" }}>
+      <p style={{ margin: "0 0 2px", fontSize: "14px", fontWeight: "800", color: "var(--primary)" }}>{title}</p>
+      {hint && <p style={{ margin: "0 0 14px", fontSize: "12px", color: "var(--text-faint)" }}>{hint}</p>}
       {children}
     </div>
   );
@@ -208,8 +208,8 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
-      <div style={{ background: "white", borderRadius: "24px", width: "600px", maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "0 32px 80px rgba(26,60,110,0.3)" }} onClick={e => e.stopPropagation()}>
-        <div style={{ background: "linear-gradient(135deg, #1a3c6e 0%, #2d5a9e 100%)", padding: "30px 32px", borderRadius: "24px 24px 0 0", position: "relative", overflow: "hidden" }}>
+      <div style={{ background: "var(--surface)", borderRadius: "24px", width: "600px", maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }} onClick={e => e.stopPropagation()}>
+        <div style={{ background: "linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%)", padding: "30px 32px", borderRadius: "24px 24px 0 0", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(226,201,126,0.12)" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
             <div style={{ flex: 1, marginRight: "12px" }}>
@@ -230,7 +230,7 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
               padding: "6px 18px", borderRadius: "999px", border: "2px solid",
               borderColor: vendor.status === "active" ? "rgba(226,201,126,0.6)" : "rgba(255,255,255,0.3)",
               background: vendor.status === "active" ? "rgba(226,201,126,0.2)" : "rgba(255,255,255,0.1)",
-              color: vendor.status === "active" ? "#e2c97e" : "rgba(255,255,255,0.7)", cursor: "pointer", fontWeight: "700", fontSize: "13px",
+              color: vendor.status === "active" ? "var(--accent-soft)" : "rgba(255,255,255,0.7)", cursor: "pointer", fontWeight: "700", fontSize: "13px",
             }}>{vendor.status === "active" ? "✅ Active — คลิกเพื่อเปลี่ยน" : "❌ Inactive — คลิกเพื่อเปลี่ยน"}</button>
           </div>
         </div>
@@ -242,49 +242,49 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
               { label: "จำนวน PO", value: vendor.numPOs?.toLocaleString() },
               { label: "ซื้อล่าสุด", value: vendor.lastPurchase },
             ].map(s => (
-              <div key={s.label} style={{ background: "linear-gradient(135deg, #f8faff, #eef2ff)", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid #e0e7ff" }}>
-                <p style={{ margin: "0 0 4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>{s.label}</p>
-                <p style={{ margin: 0, fontSize: "15px", color: "#1a3c6e", fontWeight: "800" }}>{s.value}</p>
+              <div key={s.label} style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid #e0e7ff" }}>
+                <p style={{ margin: "0 0 4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: "700" }}>{s.label}</p>
+                <p style={{ margin: 0, fontSize: "15px", color: "var(--primary)", fontWeight: "800" }}>{s.value}</p>
               </div>
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: "20px", marginBottom: "22px", fontSize: "13px", color: "#475569" }}>
-            <div><span style={{ color: "#94a3b8" }}>เงื่อนไขชำระ: </span><strong>{vendor.topPaymentTerms || "-"}</strong></div>
-            <div><span style={{ color: "#94a3b8" }}>โปรเจกต์หลัก: </span><strong>{vendor.topProject || "-"}</strong></div>
+          <div style={{ display: "flex", gap: "20px", marginBottom: "22px", fontSize: "13px", color: "var(--text-muted)" }}>
+            <div><span style={{ color: "var(--text-faint)" }}>เงื่อนไขชำระ: </span><strong>{vendor.topPaymentTerms || "-"}</strong></div>
+            <div><span style={{ color: "var(--text-faint)" }}>โปรเจกต์หลัก: </span><strong>{vendor.topProject || "-"}</strong></div>
           </div>
 
-          <div style={{ marginBottom: "22px", background: "#f8faff", borderRadius: "14px", padding: "16px" }}>
+          <div style={{ marginBottom: "22px", background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>📇 ข้อมูลติดต่อ — แก้ไขได้ทุกคน</p>
-              {contactSaved && <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "700" }}>✓ บันทึกแล้ว</span>}
+              <p style={{ margin: 0, fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>📇 ข้อมูลติดต่อ — แก้ไขได้ทุกคน</p>
+              {contactSaved && <span style={{ fontSize: "11px", color: "var(--success)", fontWeight: "700" }}>✓ บันทึกแล้ว</span>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
               <div>
-                <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>ชื่อผู้ติดต่อ</label>
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: "700" }}>ชื่อผู้ติดต่อ</label>
                 <input value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="เช่น คุณสมชาย"
-                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box", color: "#1a3c6e", background: "white" }} />
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid var(--border)", fontSize: "13px", boxSizing: "border-box", color: "var(--primary)", background: "var(--surface)" }} />
               </div>
               <div>
-                <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>เบอร์โทร</label>
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: "700" }}>เบอร์โทร</label>
                 <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="08X-XXX-XXXX"
-                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box", color: "#1a3c6e", background: "white" }} />
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid var(--border)", fontSize: "13px", boxSizing: "border-box", color: "var(--primary)", background: "var(--surface)" }} />
               </div>
             </div>
             <div style={{ marginBottom: "10px" }}>
-              <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>อีเมล</label>
+              <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: "700" }}>อีเมล</label>
               <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="name@company.com"
-                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box", color: "#1a3c6e", background: "white" }} />
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid var(--border)", fontSize: "13px", boxSizing: "border-box", color: "var(--primary)", background: "var(--surface)" }} />
             </div>
-            <button onClick={saveContact} style={{ width: "100%", padding: "9px", background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", color: "white", fontSize: "13px" }}>
+            <button onClick={saveContact} style={{ width: "100%", padding: "9px", background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", color: "white", fontSize: "13px" }}>
               💾 บันทึกข้อมูลติดต่อ
             </button>
           </div>
 
           {catData.length > 0 && (
             <div style={{ display: "grid", gridTemplateColumns: monthData.length > 1 ? "1fr 1fr" : "1fr", gap: "16px", marginBottom: "22px" }}>
-              <div style={{ background: "#f8faff", borderRadius: "14px", padding: "16px" }}>
-                <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "#1a3c6e" }}>ยอดซื้อแยกหมวด</p>
+              <div style={{ background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
+                <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "var(--primary)" }}>ยอดซื้อแยกหมวด</p>
                 <ResponsiveContainer width="100%" height={150}>
                   <PieChart>
                     <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={32} outerRadius={60} paddingAngle={2}>
@@ -296,30 +296,30 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "6px" }}>
                   {catData.slice(0, 4).map(d => (
                     <div key={d.name} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "#475569" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-muted)" }}>
                         <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: catColor(d.name).color }} />{d.name}
                       </span>
-                      <strong style={{ color: "#1a3c6e" }}>{bahtShort(d.value)}</strong>
+                      <strong style={{ color: "var(--primary)" }}>{bahtShort(d.value)}</strong>
                     </div>
                   ))}
                 </div>
               </div>
               {monthData.length > 1 && (
-                <div style={{ background: "#f8faff", borderRadius: "14px", padding: "16px" }}>
-                  <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "#1a3c6e" }}>ยอดซื้อรายเดือน</p>
+                <div style={{ background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
+                  <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "var(--primary)" }}>ยอดซื้อรายเดือน</p>
                   <ResponsiveContainer width="100%" height={170}>
                     <AreaChart data={monthData} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
                       <defs>
                         <linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#1a3c6e" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="#1a3c6e" stopOpacity={0.04} />
+                          <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.04} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-                      <XAxis dataKey="m" tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                      <YAxis tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 10, fill: "#94a3b8" }} width={48} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="m" tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
+                      <YAxis tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 10, fill: "var(--text-faint)" }} width={48} />
                       <Tooltip formatter={(v: any) => bahtFull(v)} />
-                      <Area type="linear" dataKey="v" stroke="#1a3c6e" strokeWidth={2} fill="url(#vg)" />
+                      <Area type="linear" dataKey="v" stroke="var(--primary)" strokeWidth={2} fill="url(#vg)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -329,21 +329,21 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
 
           <div style={{ marginBottom: "20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-              <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>หมวดหมู่ ({cats.length})</p>
+              <p style={{ margin: 0, fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>หมวดหมู่ ({cats.length})</p>
               {!editingCats
-                ? <button onClick={() => setEditingCats(true)} style={{ background: "none", border: "1px solid #bfdbfe", color: "#1a3c6e", borderRadius: "8px", padding: "4px 12px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}>✏️ แก้หมวด</button>
-                : <button onClick={() => { onSaveCategories(cats); setEditingCats(false); }} style={{ background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)", border: "none", color: "white", borderRadius: "8px", padding: "4px 14px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}>💾 บันทึก</button>}
+                ? <button onClick={() => setEditingCats(true)} style={{ background: "none", border: "1px solid var(--border)", color: "var(--primary)", borderRadius: "8px", padding: "4px 12px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}>✏️ แก้หมวด</button>
+                : <button onClick={() => { onSaveCategories(cats); setEditingCats(false); }} style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", border: "none", color: "white", borderRadius: "8px", padding: "4px 14px", cursor: "pointer", fontSize: "12px", fontWeight: "700" }}>💾 บันทึก</button>}
             </div>
             {!editingCats ? (
-              cats.length ? <CategoryChips cats={cats} /> : <p style={{ margin: 0, color: "#cbd5e1", fontSize: "13px" }}>ยังไม่มีหมวด</p>
+              cats.length ? <CategoryChips cats={cats} /> : <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "13px" }}>ยังไม่มีหมวด</p>
             ) : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", maxHeight: "200px", overflowY: "auto", padding: "4px" }}>
                 {CATEGORIES.map(c => {
                   const on = cats.includes(c); const cc = catColor(c);
                   return <button key={c} onClick={() => toggleCat(c)} style={{
                     padding: "5px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: "700", cursor: "pointer",
-                    border: on ? `2px solid ${cc.color}` : "1.5px solid #e2e8f0",
-                    background: on ? cc.bg : "white", color: on ? cc.color : "#94a3b8",
+                    border: on ? `2px solid ${cc.color}` : "1.5px solid var(--border)",
+                    background: on ? cc.bg : "white", color: on ? cc.color : "var(--text-faint)",
                   }}>{on ? "✓ " : ""}{c}</button>;
                 })}
               </div>
@@ -352,40 +352,40 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
 
           {/* PO HISTORY */}
           <div style={{ marginBottom: "22px" }}>
-            <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>
+            <p style={{ margin: "0 0 10px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>
               🧾 ประวัติใบสั่งซื้อ {poGroups.length > 0 && `(${poGroups.length} PO)`}
             </p>
             {poLines === null ? (
-              <p style={{ margin: 0, color: "#cbd5e1", fontSize: "13px" }}>กำลังโหลด...</p>
+              <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "13px" }}>กำลังโหลด...</p>
             ) : poGroups.length === 0 ? (
-              <p style={{ margin: 0, color: "#cbd5e1", fontSize: "13px" }}>ยังไม่มีข้อมูล PO — นำเข้าไฟล์ All_Purchase orders ก่อน</p>
+              <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "13px" }}>ยังไม่มีข้อมูล PO — นำเข้าไฟล์ All_Purchase orders ก่อน</p>
             ) : (
-              <div style={{ maxHeight: "260px", overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: "12px" }}>
+              <div style={{ maxHeight: "260px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "12px" }}>
                 {poGroups.map(g => {
                   const open = expandedPO === g.poNumber;
                   return (
-                    <div key={g.poNumber} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <div key={g.poNumber} style={{ borderBottom: "1px solid var(--border)" }}>
                       <button onClick={() => setExpandedPO(open ? null : g.poNumber)} style={{
                         width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "10px 14px", border: "none", background: open ? "#f8faff" : "white", cursor: "pointer", textAlign: "left",
+                        padding: "10px 14px", border: "none", background: open ? "var(--surface-2)" : "var(--surface)", cursor: "pointer", textAlign: "left",
                       }}>
                         <span style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontSize: "13px", fontWeight: "700", color: "#1a3c6e" }}>{open ? "▼" : "▶"} {g.poNumber}</span>
-                          <span style={{ fontSize: "11px", color: "#94a3b8" }}>{g.date || "-"} · {g.lines.length} รายการ{g.status === "Canceled" ? " · ยกเลิก" : ""}</span>
+                          <span style={{ fontSize: "13px", fontWeight: "700", color: "var(--primary)" }}>{open ? "▼" : "▶"} {g.poNumber}</span>
+                          <span style={{ fontSize: "11px", color: "var(--text-faint)" }}>{g.date || "-"} · {g.lines.length} รายการ{g.status === "Canceled" ? " · ยกเลิก" : ""}</span>
                         </span>
-                        <strong style={{ fontSize: "13px", color: "#1a3c6e" }}>{bahtFull(g.amount)}</strong>
+                        <strong style={{ fontSize: "13px", color: "var(--primary)" }}>{bahtFull(g.amount)}</strong>
                       </button>
                       {open && (
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", background: "#fafbff" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", background: "var(--surface-2)" }}>
                           <tbody>
                             {g.lines.map((l, i) => (
                               <tr key={i} style={{ borderTop: "1px solid #eef2f7" }}>
-                                <td style={{ padding: "7px 14px", color: "#475569" }}>
-                                  {l.itemNumber && <span style={{ color: "#94a3b8", marginRight: "6px" }}>{l.itemNumber}</span>}
+                                <td style={{ padding: "7px 14px", color: "var(--text-muted)" }}>
+                                  {l.itemNumber && <span style={{ color: "var(--text-faint)", marginRight: "6px" }}>{l.itemNumber}</span>}
                                   {l.productName || l.category || "-"}
                                 </td>
-                                <td style={{ padding: "7px 10px", textAlign: "right", color: "#94a3b8", whiteSpace: "nowrap" }}>{l.qty ? `${l.qty.toLocaleString()} ${l.unit}` : ""}</td>
-                                <td style={{ padding: "7px 14px", textAlign: "right", fontWeight: "700", color: "#1a3c6e", whiteSpace: "nowrap" }}>{bahtFull(l.amountTHB)}</td>
+                                <td style={{ padding: "7px 10px", textAlign: "right", color: "var(--text-faint)", whiteSpace: "nowrap" }}>{l.qty ? `${l.qty.toLocaleString()} ${l.unit}` : ""}</td>
+                                <td style={{ padding: "7px 14px", textAlign: "right", fontWeight: "700", color: "var(--primary)", whiteSpace: "nowrap" }}>{bahtFull(l.amountTHB)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -399,16 +399,16 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
           </div>
 
           <div style={{ marginBottom: "22px" }}>
-            <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>💬 หมายเหตุ</p>
+            <p style={{ margin: "0 0 8px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>💬 หมายเหตุ</p>
             <textarea value={note} onChange={e => setNote(e.target.value)} onBlur={() => onSaveNote(note)} rows={2}
               placeholder="พิมพ์หมายเหตุ แล้วคลิกที่อื่นเพื่อบันทึก..."
-              style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", boxSizing: "border-box", resize: "vertical", fontSize: "14px", color: "#1a3c6e", background: "white" }} />
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid var(--border)", boxSizing: "border-box", resize: "vertical", fontSize: "14px", color: "var(--primary)", background: "var(--surface)" }} />
           </div>
 
           {isAdmin(auth.currentUser?.email) ? (
-            <button onClick={onDelete} style={{ width: "100%", padding: "13px", background: "linear-gradient(135deg, #fff5f5, #fee2e2)", border: "1px solid #fecaca", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "#dc2626", fontSize: "14px" }}>🗑️ ลบ Vendor นี้</button>
+            <button onClick={onDelete} style={{ width: "100%", padding: "13px", background: "color-mix(in srgb, var(--danger) 10%, var(--surface))", border: "1px solid color-mix(in srgb, var(--danger) 35%, var(--surface))", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "var(--danger)", fontSize: "14px" }}>🗑️ ลบ Vendor นี้</button>
           ) : (
-            <p style={{ margin: 0, fontSize: "12px", color: "#94a3b8", textAlign: "center" }}>🔒 การลบ Vendor ทำได้เฉพาะ admin — ติดต่อผู้ดูแลระบบถ้าต้องการลบ</p>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--text-faint)", textAlign: "center" }}>🔒 การลบ Vendor ทำได้เฉพาะ admin — ติดต่อผู้ดูแลระบบถ้าต้องการลบ</p>
           )}
         </div>
       </div>
@@ -548,12 +548,12 @@ export default function VendorPage() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #f0f4ff 0%, #e8edf8 50%, #f5f0e8 100%)", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", fontFamily: "sans-serif" }}>
       <style>{`
         @keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
         .vendor-card { transition: transform 0.28s cubic-bezier(0.22,1,0.36,1), box-shadow 0.28s cubic-bezier(0.22,1,0.36,1); cursor: pointer; animation: fadeInUp 0.4s ease both; }
-        .vendor-card:hover { transform: translateY(-6px); box-shadow: 0 20px 48px rgba(26,60,110,0.16) !important; }
+        .vendor-card:hover { transform: translateY(-6px); box-shadow: 0 20px 48px var(--shadow-lg) !important; }
       `}</style>
 
       {showImport && <ImportModal onClose={() => setShowImport(false)} />}
@@ -569,12 +569,12 @@ export default function VendorPage() {
       )}
 
       {/* HERO */}
-      <div style={{ background: "linear-gradient(135deg, #0f2244 0%, #1a3c6e 45%, #2d5a9e 100%)", padding: "44px 40px 36px", position: "relative", overflow: "hidden" }}>
+      <div style={{ background: "linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 45%, var(--navy-mid) 100%)", padding: "44px 40px 36px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "-60px", right: "-60px", width: "240px", height: "240px", borderRadius: "50%", background: "rgba(226,201,126,0.08)" }} />
         <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", flexWrap: "wrap", gap: "20px" }}>
             <div style={{ flex: 1, minWidth: "300px", display: "flex", flexDirection: "column" }}>
-              <span style={{ alignSelf: "flex-start", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.4)", color: "#e2c97e", padding: "4px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: "700", letterSpacing: "0.08em" }}>PROCUREMENT</span>
+              <span style={{ alignSelf: "flex-start", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.4)", color: "var(--accent-soft)", padding: "4px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: "700", letterSpacing: "0.08em" }}>PROCUREMENT</span>
               <h1 style={{ margin: "10px 0 8px", color: "white", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: "800" }}>🏢 Vendor Directory</h1>
               <p style={{ margin: 0, color: "rgba(255,255,255,0.55)", fontSize: "15px" }}>ฐานข้อมูล Vendor จากประวัติการสั่งซื้อจริง</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "auto", paddingTop: "24px" }}>
@@ -596,7 +596,7 @@ export default function VendorPage() {
                 <button onClick={exportToExcel} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", color: "white", padding: "10px 16px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
                   📊 Export
                 </button>
-                <button onClick={() => setShowImport(true)} style={{ background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "#e2c97e", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
+                <button onClick={() => setShowImport(true)} style={{ background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "var(--accent-soft)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: "700", fontSize: "14px", whiteSpace: "nowrap" }}>
                   📥 นำเข้าข้อมูล
                 </button>
               </div>
@@ -611,8 +611,8 @@ export default function VendorPage() {
         {!loading && vendors.length > 0 && (
           <div style={{ marginBottom: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#1a3c6e" }}>📊 ภาพรวมการจัดซื้อ</h2>
-              <button onClick={() => setShowCharts(s => !s)} style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "6px 14px", cursor: "pointer", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>{showCharts ? "ซ่อน ▲" : "แสดง ▼"}</button>
+              <h2 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "var(--primary)" }}>📊 ภาพรวมการจัดซื้อ</h2>
+              <button onClick={() => setShowCharts(s => !s)} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "6px 14px", cursor: "pointer", fontSize: "13px", fontWeight: "700", color: "var(--text-muted)" }}>{showCharts ? "ซ่อน ▲" : "แสดง ▼"}</button>
             </div>
             {showCharts && (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -621,15 +621,15 @@ export default function VendorPage() {
                     <AreaChart data={overview.monData} margin={{ top: 6, right: 12, bottom: 0, left: 4 }}>
                       <defs>
                         <linearGradient id="og" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#e2c97e" stopOpacity={0.6} />
-                          <stop offset="100%" stopColor="#e2c97e" stopOpacity={0.05} />
+                          <stop offset="0%" stopColor="var(--accent-soft)" stopOpacity={0.6} />
+                          <stop offset="100%" stopColor="var(--accent-soft)" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
-                      <XAxis dataKey="m" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                      <YAxis tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 11, fill: "#94a3b8" }} width={56} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="m" tick={{ fontSize: 11, fill: "var(--text-faint)" }} />
+                      <YAxis tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 11, fill: "var(--text-faint)" }} width={56} />
                       <Tooltip formatter={(v: any) => bahtFull(v)} />
-                      <Area type="linear" dataKey="v" stroke="#c9a84c" strokeWidth={2.5} fill="url(#og)" />
+                      <Area type="linear" dataKey="v" stroke="var(--accent)" strokeWidth={2.5} fill="url(#og)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -637,8 +637,8 @@ export default function VendorPage() {
                   <ChartCard title="ยอดซื้อแยกหมวด (Top 10)" hint="หมวดที่ใช้งบมากสุด">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={overview.catData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
-                        <XAxis type="number" tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#475569" }} width={130} />
+                        <XAxis type="number" tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={130} />
                         <Tooltip formatter={(v: any) => bahtFull(v)} />
                         <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                           {overview.catData.map((d, i) => <Cell key={i} fill={catColor(d.name).color} />)}
@@ -649,10 +649,10 @@ export default function VendorPage() {
                   <ChartCard title="Top 10 Vendor" hint="vendor ที่มียอดซื้อสะสมสูงสุด">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={overview.topVendors} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
-                        <XAxis type="number" tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#475569" }} width={120} />
+                        <XAxis type="number" tickFormatter={(v: any) => bahtShort(v)} tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={120} />
                         <Tooltip formatter={(v: any) => bahtFull(v)} />
-                        <Bar dataKey="value" radius={[0, 6, 6, 0]} fill="#1a3c6e" />
+                        <Bar dataKey="value" radius={[0, 6, 6, 0]} fill="var(--primary)" />
                       </BarChart>
                     </ResponsiveContainer>
                   </ChartCard>
@@ -663,14 +663,14 @@ export default function VendorPage() {
         )}
 
         {/* FILTERS */}
-        <div style={{ background: "white", borderRadius: "20px", padding: "22px", boxShadow: "0 4px 24px rgba(26,60,110,0.08)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
+        <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "var(--shadow)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
             <div>
-              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>🔍 ค้นหา</label>
+              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>🔍 ค้นหา</label>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ชื่อบริษัท, รหัส, หมวดหมู่..."
-                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "#1a3c6e" }}
-                onFocus={e => { e.target.style.borderColor = "#1a3c6e"; }}
-                onBlur={e => { e.target.style.borderColor = "#e2c97e"; }} />
+                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "var(--bg-elevated)", color: "var(--primary)" }}
+                onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                onBlur={e => { e.target.style.borderColor = "var(--accent-soft)"; }} />
             </div>
             {[
               { label: "🏢 บริษัท", value: filterCompany, setter: setFilterCompany, options: companyOptions },
@@ -679,32 +679,32 @@ export default function VendorPage() {
               { label: "สถานะ", value: filterStatus, setter: setFilterStatus, options: ["ทั้งหมด", "active", "inactive"] },
             ].map(f => (
               <div key={f.label}>
-                <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>{f.label}</label>
-                <select value={f.value} onChange={e => f.setter(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
+                <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>{f.label}</label>
+                <select value={f.value} onChange={e => f.setter(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid var(--border)", fontSize: "13px", color: "var(--primary)", background: "var(--surface)" }}>
                   {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
             ))}
             <div>
-              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>เรียงตาม</label>
-              <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
+              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>เรียงตาม</label>
+              <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid var(--border)", fontSize: "13px", color: "var(--primary)", background: "var(--surface)" }}>
                 <option value="spend">ยอดซื้อสูงสุด</option>
                 <option value="lastPurchase">ซื้อล่าสุด</option>
                 <option value="name">ชื่อ A-Z</option>
               </select>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #f1f5f9" }}>
-            <p style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
-              แสดง <strong style={{ color: "#1a3c6e" }}>{filtered.length}</strong> จาก <strong style={{ color: "#1a3c6e" }}>{vendors.length}</strong> Vendor
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--border)" }}>
+            <p style={{ margin: 0, fontSize: "13px", color: "var(--text-faint)" }}>
+              แสดง <strong style={{ color: "var(--primary)" }}>{filtered.length}</strong> จาก <strong style={{ color: "var(--primary)" }}>{vendors.length}</strong> Vendor
             </p>
             <div style={{ display: "flex", gap: "8px" }}>
               {(["card", "table"] as ViewMode[]).map(m => (
                 <button key={m} onClick={() => setViewMode(m)} style={{
                   padding: "7px 16px", borderRadius: "8px", border: "1.5px solid",
-                  borderColor: viewMode === m ? "#1a3c6e" : "#e2e8f0",
-                  background: viewMode === m ? "#1a3c6e" : "white",
-                  color: viewMode === m ? "white" : "#94a3b8",
+                  borderColor: viewMode === m ? "var(--navy)" : "var(--border)",
+                  background: viewMode === m ? "var(--navy)" : "var(--surface)",
+                  color: viewMode === m ? "white" : "var(--text-faint)",
                   cursor: "pointer", fontWeight: "700", fontSize: "13px",
                 }}>{m === "card" ? "⊞ Card" : "☰ Table"}</button>
               ))}
@@ -719,12 +719,12 @@ export default function VendorPage() {
         )}
 
         {!loading && filtered.length === 0 && (
-          <div style={{ textAlign: "center", padding: "80px 40px", background: "white", borderRadius: "20px", boxShadow: "0 4px 24px rgba(26,60,110,0.08)" }}>
+          <div style={{ textAlign: "center", padding: "80px 40px", background: "var(--surface)", borderRadius: "20px", boxShadow: "var(--shadow)" }}>
             <div style={{ fontSize: "64px", marginBottom: "16px" }}>🏢</div>
-            <h3 style={{ margin: "0 0 8px", color: "#1a3c6e", fontSize: "20px", fontWeight: "700" }}>
+            <h3 style={{ margin: "0 0 8px", color: "var(--primary)", fontSize: "20px", fontWeight: "700" }}>
               {vendors.length === 0 ? "ยังไม่มีข้อมูล Vendor" : "ไม่พบ Vendor"}
             </h3>
-            <p style={{ margin: 0, color: "#94a3b8", fontSize: "15px" }}>
+            <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "15px" }}>
               {vendors.length === 0 ? "ยังไม่มีข้อมูลในระบบ" : "ลองเปลี่ยน keyword หรือ filter"}
             </p>
           </div>
@@ -735,24 +735,24 @@ export default function VendorPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: "18px" }}>
             {filtered.map((v, idx) => (
               <div key={v.id} className="vendor-card" onClick={() => setDetailVendor(v)}
-                style={{ animationDelay: `${Math.min(idx, 12) * 0.04}s`, background: "white", borderRadius: "18px", padding: "22px", boxShadow: "0 4px 16px rgba(26,60,110,0.08)", borderTop: `3px solid ${v.status === "active" ? "#e2c97e" : "#e2e8f0"}` }}>
+                style={{ animationDelay: `${Math.min(idx, 12) * 0.04}s`, background: "var(--surface)", borderRadius: "18px", padding: "22px", boxShadow: "var(--shadow)", borderTop: `3px solid ${v.status === "active" ? "var(--accent-soft)" : "var(--border)"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
                   <div style={{ flex: 1, marginRight: "10px" }}>
-                    <p style={{ margin: "0 0 4px", fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>
+                    <p style={{ margin: "0 0 4px", fontSize: "11px", color: "var(--text-faint)", fontWeight: "700" }}>
                       {v.vendorCode} · {GROUP_LABEL[v.vendorGroup] || v.vendorGroup}
-                      {(v.companies || []).length > 0 && <> · <span style={{ color: "#1a3c6e" }}>{v.companies.join(", ")}</span></>}
+                      {(v.companies || []).length > 0 && <> · <span style={{ color: "var(--primary)" }}>{v.companies.join(", ")}</span></>}
                     </p>
-                    <h3 style={{ margin: 0, color: "#1a3c6e", fontSize: "15px", fontWeight: "700", lineHeight: "1.35" }}>{highlight(v.name, search)}</h3>
+                    <h3 style={{ margin: 0, color: "var(--primary)", fontSize: "15px", fontWeight: "700", lineHeight: "1.35" }}>{highlight(v.name, search)}</h3>
                   </div>
                   <button onClick={e => { e.stopPropagation(); handleToggleStatus(v); }} style={{
-                    background: v.status === "active" ? "linear-gradient(135deg, #fefce8, #fef9c3)" : "#f1f5f9",
-                    color: v.status === "active" ? "#92400e" : "#94a3b8",
+                    background: v.status === "active" ? "color-mix(in srgb, var(--accent) 18%, var(--surface))" : "var(--surface-2)",
+                    color: v.status === "active" ? "var(--accent)" : "var(--text-faint)",
                     padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
-                    border: v.status === "active" ? "1px solid #e2c97e" : "1px solid #e2e8f0",
+                    border: v.status === "active" ? "1px solid var(--accent-soft)" : "1px solid var(--border)",
                     cursor: "pointer", whiteSpace: "nowrap",
                   }}>{v.status === "active" ? "✅ Active" : "⏸ Inactive"}</button>
                 </div>
-                <div style={{ height: "1px", background: "linear-gradient(90deg, #e2c97e33, transparent)", margin: "12px 0" }} />
+                <div style={{ height: "1px", background: "linear-gradient(90deg, color-mix(in srgb, var(--accent-soft) 20%, transparent), transparent)", margin: "12px 0" }} />
                 <div style={{ marginBottom: "14px" }}><CategoryChips cats={v.categories} max={3} search={search} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
                   {[
@@ -760,14 +760,14 @@ export default function VendorPage() {
                     { label: "PO", value: v.numPOs.toLocaleString() },
                     { label: "ล่าสุด", value: v.lastPurchase ? v.lastPurchase.slice(2) : "-" },
                   ].map(s => (
-                    <div key={s.label} style={{ background: "#f8faff", borderRadius: "10px", padding: "9px 6px", textAlign: "center" }}>
-                      <p style={{ margin: "0 0 2px", fontSize: "9px", color: "#94a3b8", fontWeight: "700" }}>{s.label}</p>
-                      <p style={{ margin: 0, fontSize: "13px", color: "#1a3c6e", fontWeight: "800" }}>{s.value}</p>
+                    <div key={s.label} style={{ background: "var(--surface-2)", borderRadius: "10px", padding: "9px 6px", textAlign: "center" }}>
+                      <p style={{ margin: "0 0 2px", fontSize: "9px", color: "var(--text-faint)", fontWeight: "700" }}>{s.label}</p>
+                      <p style={{ margin: 0, fontSize: "13px", color: "var(--primary)", fontWeight: "800" }}>{s.value}</p>
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "flex-end" }}>
-                  <span style={{ fontSize: "12px", color: "#cbd5e1" }}>คลิกดูกราฟ / แก้หมวด →</span>
+                <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-faint)" }}>คลิกดูกราฟ / แก้หมวด →</span>
                 </div>
               </div>
             ))}
@@ -776,10 +776,10 @@ export default function VendorPage() {
 
         {/* TABLE VIEW */}
         {!loading && filtered.length > 0 && viewMode === "table" && (
-          <div style={{ background: "white", borderRadius: "20px", boxShadow: "0 4px 24px rgba(26,60,110,0.08)", overflow: "hidden", border: "1px solid rgba(226,201,126,0.15)" }}>
+          <div style={{ background: "var(--surface)", borderRadius: "20px", boxShadow: "var(--shadow)", overflow: "hidden", border: "1px solid rgba(226,201,126,0.15)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
-                <tr style={{ background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)" }}>
+                <tr style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))" }}>
                   {["รหัส", "ชื่อบริษัท", "บริษัทในเครือ", "หมวดหมู่", "ยอดซื้อ", "PO", "ล่าสุด", "สถานะ"].map((h, i) => (
                     <th key={i} style={{ padding: "14px 16px", textAlign: i >= 4 && i <= 5 ? "right" : "left", fontWeight: "700", fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
                   ))}
@@ -789,20 +789,20 @@ export default function VendorPage() {
                 {filtered.map((v, i) => (
                   <tr key={v.id} onClick={() => setDetailVendor(v)}
                     onMouseEnter={() => setHoveredId(v.id)} onMouseLeave={() => setHoveredId(null)}
-                    style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: hoveredId === v.id ? "#f8faff" : i % 2 === 0 ? "white" : "#fafbff" }}>
-                    <td style={{ padding: "14px 16px", color: "#94a3b8", fontWeight: "700", fontSize: "12px" }}>{v.vendorCode}</td>
-                    <td style={{ padding: "14px 16px", fontWeight: "700", color: "#1a3c6e" }}>{highlight(v.name, search)}</td>
-                    <td style={{ padding: "14px 16px", color: "#64748b", fontSize: "12px" }}>{(v.companies || []).join(", ") || "-"}</td>
+                    style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", background: hoveredId === v.id ? "var(--surface-2)" : i % 2 === 0 ? "var(--surface)" : "var(--surface-2)" }}>
+                    <td style={{ padding: "14px 16px", color: "var(--text-faint)", fontWeight: "700", fontSize: "12px" }}>{v.vendorCode}</td>
+                    <td style={{ padding: "14px 16px", fontWeight: "700", color: "var(--primary)" }}>{highlight(v.name, search)}</td>
+                    <td style={{ padding: "14px 16px", color: "var(--text-muted)", fontSize: "12px" }}>{(v.companies || []).join(", ") || "-"}</td>
                     <td style={{ padding: "14px 16px" }}><CategoryChips cats={v.categories} max={2} /></td>
-                    <td style={{ padding: "14px 16px", textAlign: "right", fontWeight: "700", color: "#1a3c6e" }}>{bahtShort(v.totalSpend)}</td>
-                    <td style={{ padding: "14px 16px", textAlign: "right", color: "#475569" }}>{v.numPOs}</td>
-                    <td style={{ padding: "14px 16px", color: "#475569" }}>{v.lastPurchase}</td>
+                    <td style={{ padding: "14px 16px", textAlign: "right", fontWeight: "700", color: "var(--primary)" }}>{bahtShort(v.totalSpend)}</td>
+                    <td style={{ padding: "14px 16px", textAlign: "right", color: "var(--text-muted)" }}>{v.numPOs}</td>
+                    <td style={{ padding: "14px 16px", color: "var(--text-muted)" }}>{v.lastPurchase}</td>
                     <td style={{ padding: "14px 16px" }}>
                       <button onClick={e => { e.stopPropagation(); handleToggleStatus(v); }} style={{
-                        background: v.status === "active" ? "linear-gradient(135deg, #fefce8, #fef9c3)" : "#f1f5f9",
-                        color: v.status === "active" ? "#92400e" : "#94a3b8",
+                        background: v.status === "active" ? "color-mix(in srgb, var(--accent) 18%, var(--surface))" : "var(--surface-2)",
+                        color: v.status === "active" ? "var(--accent)" : "var(--text-faint)",
                         padding: "4px 12px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
-                        border: v.status === "active" ? "1px solid #e2c97e" : "1px solid #e2e8f0", cursor: "pointer",
+                        border: v.status === "active" ? "1px solid var(--accent-soft)" : "1px solid var(--border)", cursor: "pointer",
                       }}>{v.status === "active" ? "✅" : "⏸"}</button>
                     </td>
                   </tr>
