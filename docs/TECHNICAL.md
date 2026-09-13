@@ -260,7 +260,7 @@ const url = await getDownloadURL(r); // เก็บ url นี้ไว้ใ�
 
 ### Security Rules — `firestore.rules`
 
-กฎ **เหมือนกันหมดทุก collection**:
+กฎ **เหมือนกันหมดเกือบทุก collection**:
 ```
 allow read, write: if request.auth != null;
 ```
@@ -268,6 +268,12 @@ allow read, write: if request.auth != null;
 - **Why เรียบง่ายแบบนี้:** เป็นแอปภายในทีมเล็ก ทุกคนเชื่อใจกัน ไม่ต้องแยกสิทธิ์ราย field
 - **⚠️ How to deploy:** ไฟล์นี้ **ไม่ auto-deploy** — ต้องเข้า Firebase Console → Firestore → Rules
   → paste → **Publish** เอง ทุกครั้งที่เพิ่ม collection ใหม่ ต้องเพิ่ม match block ที่นี่ด้วย
+
+**ข้อยกเว้น — `vendors` (delete เท่านั้น):** ระบบยังไม่มี role จริง แต่การ **ลบ Vendor ทั้งราย**
+ต้องเป็น admin เท่านั้น (ตาม `isAdmin()` helper ในไฟล์ rules — เช็ค
+`request.auth.token.email` กับ allowlist ฮาร์ดโค้ด) ต้องแก้ 2 จุดคู่กันเสมอถ้าจะเพิ่ม/ลบ admin:
+`firestore.rules` (`isAdmin()`) และ `src/config/admins.ts` (`ADMIN_EMAILS`) — ฝั่ง React ใช้ไฟล์หลัง
+ซ่อนปุ่มลบใน UI (ux เท่านั้น) ส่วน rules คือด่านบังคับจริงฝั่ง server
 
 ---
 

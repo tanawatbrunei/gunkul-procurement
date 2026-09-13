@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import {
   collection, onSnapshot, updateDoc, deleteDoc, doc,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, AreaChart, Area, CartesianGrid,
 } from "recharts";
 import { fetchVendorPOLines, countsAsSpend, type POLine } from "./data/procurement";
+import { isAdmin } from "./config/admins";
 import ImportModal from "./components/ImportModal";
 import CompanyUpdates from "./components/CompanyUpdates";
 
@@ -396,7 +397,11 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
               style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", boxSizing: "border-box", resize: "vertical", fontSize: "14px", color: "#1a3c6e", background: "white" }} />
           </div>
 
-          <button onClick={onDelete} style={{ width: "100%", padding: "13px", background: "linear-gradient(135deg, #fff5f5, #fee2e2)", border: "1px solid #fecaca", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "#dc2626", fontSize: "14px" }}>🗑️ ลบ Vendor นี้</button>
+          {isAdmin(auth.currentUser?.email) ? (
+            <button onClick={onDelete} style={{ width: "100%", padding: "13px", background: "linear-gradient(135deg, #fff5f5, #fee2e2)", border: "1px solid #fecaca", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "#dc2626", fontSize: "14px" }}>🗑️ ลบ Vendor นี้</button>
+          ) : (
+            <p style={{ margin: 0, fontSize: "12px", color: "#94a3b8", textAlign: "center" }}>🔒 การลบ Vendor ทำได้เฉพาะ admin — ติดต่อผู้ดูแลระบบถ้าต้องการลบ</p>
+          )}
         </div>
       </div>
     </div>
