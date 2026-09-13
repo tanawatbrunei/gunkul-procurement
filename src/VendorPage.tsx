@@ -83,6 +83,9 @@ interface Vendor {
   status: VendorStatus;
   note: string;
   source: string;
+  contactPerson: string;
+  contactPhone: string;
+  contactEmail: string;
 }
 
 function bahtFull(n: number) {
@@ -149,14 +152,25 @@ function ChartCard({ title, hint, children }: { title: string; hint?: string; ch
   );
 }
 
-function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCategories, onSaveNote }: {
+function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCategories, onSaveNote, onSaveContact }: {
   vendor: Vendor; onClose: () => void; onDelete: () => void; onToggleStatus: () => void;
   onSaveCategories: (cats: string[]) => void; onSaveNote: (note: string) => void;
+  onSaveContact: (contact: { contactPerson: string; contactPhone: string; contactEmail: string }) => void;
 }) {
   const [editingCats, setEditingCats] = useState(false);
   const [cats, setCats] = useState<string[]>(vendor.categories || []);
   const [note, setNote] = useState(vendor.note || "");
   const toggleCat = (c: string) => setCats(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c]);
+
+  const [contactPerson, setContactPerson] = useState(vendor.contactPerson || "");
+  const [contactPhone, setContactPhone] = useState(vendor.contactPhone || "");
+  const [contactEmail, setContactEmail] = useState(vendor.contactEmail || "");
+  const [contactSaved, setContactSaved] = useState(false);
+  const saveContact = () => {
+    onSaveContact({ contactPerson, contactPhone, contactEmail });
+    setContactSaved(true);
+    setTimeout(() => setContactSaved(false), 2000);
+  };
 
   // PO drill-down: lazy-load this vendor's PO lines, grouped by PO number.
   const [poLines, setPoLines] = useState<POLine[] | null>(null);
@@ -229,6 +243,33 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
           <div style={{ display: "flex", gap: "20px", marginBottom: "22px", fontSize: "13px", color: "#475569" }}>
             <div><span style={{ color: "#94a3b8" }}>เงื่อนไขชำระ: </span><strong>{vendor.topPaymentTerms || "-"}</strong></div>
             <div><span style={{ color: "#94a3b8" }}>โปรเจกต์หลัก: </span><strong>{vendor.topProject || "-"}</strong></div>
+          </div>
+
+          <div style={{ marginBottom: "22px", background: "#f8faff", borderRadius: "14px", padding: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <p style={{ margin: 0, fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>📇 ข้อมูลติดต่อ — แก้ไขได้ทุกคน</p>
+              {contactSaved && <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: "700" }}>✓ บันทึกแล้ว</span>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>ชื่อผู้ติดต่อ</label>
+                <input value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="เช่น คุณสมชาย"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>เบอร์โทร</label>
+                <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="08X-XXX-XXXX"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box" }} />
+              </div>
+            </div>
+            <div style={{ marginBottom: "10px" }}>
+              <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>อีเมล</label>
+              <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="name@company.com"
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box" }} />
+            </div>
+            <button onClick={saveContact} style={{ width: "100%", padding: "9px", background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", color: "white", fontSize: "13px" }}>
+              💾 บันทึกข้อมูลติดต่อ
+            </button>
           </div>
 
           {catData.length > 0 && (
@@ -388,6 +429,7 @@ export default function VendorPage() {
           topProject: r.topProject || "", categorySpend: r.categorySpend || {},
           monthlySpend: r.monthlySpend || {}, status: r.status || "active",
           note: r.note || "", source: r.source || "",
+          contactPerson: r.contactPerson || "", contactPhone: r.contactPhone || "", contactEmail: r.contactEmail || "",
         } as Vendor;
       }));
       setLoading(false);
@@ -421,7 +463,8 @@ export default function VendorPage() {
     const matchSearch = s === "" || v.name.toLowerCase().includes(s) ||
       v.vendorCode.toLowerCase().includes(s) ||
       v.categories.some(c => c.toLowerCase().includes(s)) ||
-      v.note.toLowerCase().includes(s);
+      v.note.toLowerCase().includes(s) ||
+      v.contactPerson.toLowerCase().includes(s);
     const matchCat = filterCategory === "ทั้งหมด" || v.categories.includes(filterCategory);
     const matchStatus = filterStatus === "ทั้งหมด" || v.status === filterStatus;
     const matchGroup = filterGroup === "ทั้งหมด" || v.vendorGroup === filterGroup;
@@ -446,6 +489,9 @@ export default function VendorPage() {
       "เงื่อนไขชำระ": v.topPaymentTerms,
       "โปรเจกต์หลัก": v.topProject,
       "สถานะ": v.status === "active" ? "Active" : "Inactive",
+      "ผู้ติดต่อ": v.contactPerson,
+      "เบอร์โทร": v.contactPhone,
+      "อีเมล": v.contactEmail,
       "หมายเหตุ": v.note,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
@@ -472,6 +518,10 @@ export default function VendorPage() {
   const handleSaveNote = async (v: Vendor, note: string) => {
     await updateDoc(doc(db, "vendors", v.id), { note });
   };
+  const handleSaveContact = async (v: Vendor, contact: { contactPerson: string; contactPhone: string; contactEmail: string }) => {
+    await updateDoc(doc(db, "vendors", v.id), contact);
+    if (detailVendor?.id === v.id) setDetailVendor({ ...detailVendor, ...contact });
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #f0f4ff 0%, #e8edf8 50%, #f5f0e8 100%)", fontFamily: "sans-serif" }}>
@@ -490,7 +540,8 @@ export default function VendorPage() {
           onDelete={() => handleDelete(detailVendor.id)}
           onToggleStatus={() => handleToggleStatus(detailVendor)}
           onSaveCategories={(c) => handleSaveCategories(detailVendor, c)}
-          onSaveNote={(n) => handleSaveNote(detailVendor, n)} />
+          onSaveNote={(n) => handleSaveNote(detailVendor, n)}
+          onSaveContact={(c) => handleSaveContact(detailVendor, c)} />
       )}
 
       {/* HERO */}
