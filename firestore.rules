@@ -15,6 +15,7 @@ service cloud.firestore {
     match /items/{docId}           { allow read, write: if request.auth != null; }
     match /poLines/{docId}         { allow read, write: if request.auth != null; }
     match /meta/{docId}            { allow read, write: if request.auth != null; }
+    match /importHistory/{docId}   { allow read, write: if request.auth != null; }
     match /settings/{docId}        { allow read, write: if request.auth != null; }
     match /orgChart/{docId}        { allow read, write: if request.auth != null; }
     match /staffDirectory/{docId}  { allow read, write: if request.auth != null; }

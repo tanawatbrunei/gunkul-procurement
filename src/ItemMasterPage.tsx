@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { db } from "./firebase";
 import { fetchItemPriceHistory } from "./data/procurement";
-import type { ItemAgg, ItemVendorStat, PricePoint } from "./data/procurement";
+import type { ItemAgg, ItemVendorStat, PricePoint, ImportHistoryEntry } from "./data/procurement";
 import ImportModal from "./components/ImportModal";
 import CompanyUpdates from "./components/CompanyUpdates";
 
@@ -174,6 +174,78 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
   );
 }
 
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "เมื่อสักครู่";
+  if (mins < 60) return `${mins} นาทีที่แล้ว`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} ชม.ที่แล้ว`;
+  const days = Math.floor(hrs / 24);
+  return `${days} วันที่แล้ว`;
+}
+
+function ImportHistoryModal({ onClose }: { onClose: () => void }) {
+  const [history, setHistory] = useState<ImportHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, "importHistory"), orderBy("timestamp", "desc")),
+      (snap) => {
+        setHistory(snap.docs.map((d) => d.data() as ImportHistoryEntry));
+        setLoading(false);
+      },
+      (err) => { console.error("importHistory snapshot error:", err); setLoading(false); },
+    );
+    return () => unsub();
+  }, []);
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "white", borderRadius: "22px", width: "680px", maxWidth: "95vw", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 32px 80px rgba(26,60,110,0.3)" }}>
+        <div style={{ background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)", padding: "22px 28px", borderRadius: "22px 22px 0 0", position: "relative" }}>
+          <button onClick={onClose} style={{ position: "absolute", top: "18px", right: "20px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "32px", height: "32px", cursor: "pointer", color: "white", fontSize: "16px" }}>✕</button>
+          <h2 style={{ margin: 0, color: "white", fontSize: "18px", fontWeight: 800 }}>🕐 ประวัติการนำเข้าข้อมูล PO</h2>
+          <p style={{ margin: "6px 0 0", color: "rgba(255,255,255,0.65)", fontSize: "12px" }}>ทุกครั้งที่มีการนำเข้าไฟล์ (แม้ไม่มี PO ใหม่) จะถูกบันทึกไว้ที่นี่</p>
+        </div>
+        <div style={{ padding: "20px 28px" }}>
+          {loading && <p style={{ textAlign: "center", color: "#94a3b8", padding: "30px" }}>กำลังโหลด...</p>}
+          {!loading && history.length === 0 && (
+            <p style={{ textAlign: "center", color: "#94a3b8", padding: "30px" }}>ยังไม่มีประวัติการนำเข้า</p>
+          )}
+          {!loading && history.length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ background: "#f8faff" }}>
+                  {["เมื่อไหร่", "โดย", "ไฟล์", "บริษัท", "PO ใหม่", "บรรทัดใหม่"].map((h, i) => (
+                    <th key={h} style={{ padding: "9px 10px", textAlign: i >= 4 ? "right" : "left", fontSize: "11px", color: "#64748b", fontWeight: 700, borderBottom: "2px solid #e2e8f0" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "9px 10px" }}>
+                      <div style={{ fontWeight: 700, color: "#1a3c6e" }}>{timeAgo(h.timestamp)}</div>
+                      <div style={{ fontSize: "10px", color: "#94a3b8" }}>{h.timestamp.slice(0, 16).replace("T", " ")}</div>
+                    </td>
+                    <td style={{ padding: "9px 10px", color: "#475569" }}>{h.importedBy}</td>
+                    <td style={{ padding: "9px 10px", color: "#94a3b8", fontSize: "12px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.fileName || "-"}</td>
+                    <td style={{ padding: "9px 10px", color: "#94a3b8", fontSize: "12px" }}>{h.companies.join(", ") || "-"}</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, color: h.newPOs > 0 ? "#16a34a" : "#94a3b8" }}>{h.newPOs.toLocaleString()}</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", color: "#475569" }}>{h.newLines.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ItemMasterPage() {
   const [items, setItems] = useState<ItemAgg[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,6 +255,7 @@ export default function ItemMasterPage() {
   const [sortKey, setSortKey] = useState<SortKey>("spend");
   const [detail, setDetail] = useState<ItemAgg | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -208,11 +281,20 @@ export default function ItemMasterPage() {
   }, [items]);
 
   const filtered = useMemo(() => {
-    const s = search.toLowerCase();
+    // Multi-token AND match across item code/name, category, and every vendor
+    // that sells it — so "solar huawei" finds an item by combining a product
+    // keyword with a supplier name, not just one exact-substring field.
+    const tokens = search.toLowerCase().split(/\s+/).filter(Boolean);
     return items.filter((it) => {
-      const matchSearch = s === "" || it.itemNumber.toLowerCase().includes(s) ||
-        (it.productName || "").toLowerCase().includes(s) ||
-        (it.searchName || "").toLowerCase().includes(s);
+      let matchSearch = true;
+      if (tokens.length) {
+        const haystack = [
+          it.itemNumber, it.productName, it.searchName, it.category,
+          ...it.vendors.map((v) => v.vendorName),
+          ...it.vendors.map((v) => v.vendorCode),
+        ].join(" ").toLowerCase();
+        matchSearch = tokens.every((t) => haystack.includes(t));
+      }
       const matchCat = filterCat === "ทั้งหมด" || it.category === filterCat;
       const matchCmp = !comparableOnly || it.numVendors > 1;
       return matchSearch && matchCat && matchCmp;
@@ -230,6 +312,7 @@ export default function ItemMasterPage() {
     <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #f0f4ff 0%, #e8edf8 50%, #f5f0e8 100%)", fontFamily: "sans-serif" }}>
       {detail && <ItemDetailModal item={detail} onClose={() => setDetail(null)} />}
       {showImport && <ImportModal onClose={() => setShowImport(false)} />}
+      {showHistory && <ImportHistoryModal onClose={() => setShowHistory(false)} />}
 
       {/* HERO */}
       <div style={{ background: "linear-gradient(135deg, #0f2244 0%, #1a3c6e 45%, #2d5a9e 100%)", padding: "44px 40px 36px", position: "relative", overflow: "hidden" }}>
@@ -257,6 +340,9 @@ export default function ItemMasterPage() {
               <button onClick={() => setShowImport(true)} style={{ alignSelf: "flex-end", background: "rgba(226,201,126,0.2)", border: "1px solid rgba(226,201,126,0.5)", color: "#e2c97e", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 700, fontSize: "14px" }}>
                 📥 นำเข้าข้อมูล
               </button>
+              <button onClick={() => setShowHistory(true)} style={{ alignSelf: "flex-end", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.85)", padding: "10px 20px", borderRadius: "12px", cursor: "pointer", fontWeight: 700, fontSize: "14px" }}>
+                🕐 ประวัติการนำเข้า
+              </button>
               <CompanyUpdates />
             </div>
           </div>
@@ -269,7 +355,7 @@ export default function ItemMasterPage() {
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>🔍 ค้นหา</label>
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="รหัสสินค้า, ชื่อ, Search name..."
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="รหัสสินค้า, ชื่อ, Vendor, หมวดหมู่ — พิมพ์ได้หลายคำ"
                 style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5" }} />
             </div>
             <div>

@@ -153,6 +153,7 @@ flowchart LR
 | `kickoffProjects` | ทะเบียนโครงการหลัก (พร้อมสเปค/งบ/สถานะ) | Project |
 | `settings` | ตัวเลือกยี่ห้อที่ผู้ใช้เพิ่มเอง (เช่น PV/Inverter brand) | Project |
 | `items` | รายการสินค้า + ราคาต่อ Vendor | Item Master |
+| `importHistory` | ประวัติการนำเข้าไฟล์ PO แต่ละครั้ง (ใคร/เมื่อไหร่/ไฟล์อะไร) | Item Master (ปุ่ม "ประวัติการนำเข้า") |
 | `vendors` | ทะเบียนผู้จำหน่าย + ยอดซื้อสะสม | Vendor Directory |
 | `poLines` | รายการ PO รายบรรทัด (ประวัติการซื้อของ Vendor) | Vendor Directory |
 | `trackingTabs` (+ `rows`) | สถานะ PR/PA/PO ซิงค์มาจาก Google Sheet | Tracking, Dashboard |
