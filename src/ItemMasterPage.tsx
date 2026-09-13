@@ -31,6 +31,18 @@ function spread(it: ItemAgg): number {
   return it.minPrice > 0 ? (it.maxPrice - it.minPrice) / it.minPrice : 0;
 }
 
+function HistoryTooltip({ active, payload }: { active?: boolean; payload?: { payload: PricePoint }[] }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div style={{ background: "white", borderRadius: "10px", border: "1px solid #e2e8f0", fontSize: "12px", padding: "8px 12px" }}>
+      <p style={{ margin: "0 0 3px", color: "#94a3b8" }}>วันที่ {p.date}</p>
+      <p style={{ margin: "0 0 3px", fontWeight: 800, color: "#1a3c6e" }}>{baht(p.price)}</p>
+      <p style={{ margin: 0, color: "#64748b", fontFamily: "monospace" }}>PO: {p.poNumber || "-"}</p>
+    </div>
+  );
+}
+
 function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: string }) {
   const perUnit = unit ? `บาท/${unit}` : "บาท/หน่วย";
   if (points.length < 2) {
@@ -40,6 +52,7 @@ function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: strin
       </p>
     );
   }
+  const newestFirst = [...points].sort((a, b) => (a.date < b.date ? 1 : -1));
   return (
     <div style={{ marginTop: "8px" }}>
       <p style={{ margin: "0 0 6px", fontSize: "11px", color: "#64748b", fontWeight: 700 }}>
@@ -50,15 +63,29 @@ function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: strin
           <CartesianGrid strokeDasharray="3 3" stroke="#eef2ff" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} />
           <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} width={58} tickFormatter={(v) => bahtShort(Number(v))} />
-          <Tooltip
-            formatter={(v) => [baht(Number(v)), "ราคา/หน่วย"]}
-            labelFormatter={(d) => `วันที่ ${d}`}
-            contentStyle={{ borderRadius: "10px", border: "1px solid #e2e8f0", fontSize: "12px" }}
-          />
+          <Tooltip content={<HistoryTooltip />} />
           <Line type="linear" dataKey="price" stroke="#2d5a9e" strokeWidth={2}
             dot={{ r: 3, fill: "#2d5a9e" }} activeDot={{ r: 5 }} />
         </LineChart>
       </ResponsiveContainer>
+
+      <p style={{ margin: "12px 0 6px", fontSize: "11px", color: "#64748b", fontWeight: 700 }}>
+        อ้างอิงเลข PO ต่อครั้งที่ซื้อ (ใหม่สุดก่อน)
+      </p>
+      <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #eef2ff", borderRadius: "8px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+          <tbody>
+            {newestFirst.map((p, i) => (
+              <tr key={`${p.poNumber}-${i}`} style={{ borderBottom: i < newestFirst.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                <td style={{ padding: "6px 10px", color: "#94a3b8" }}>{p.date}</td>
+                <td style={{ padding: "6px 10px", color: "#1a3c6e", fontFamily: "monospace", fontWeight: 700 }}>{p.poNumber || "-"}</td>
+                <td style={{ padding: "6px 10px", textAlign: "right", color: "#475569" }}>{p.qty ? `${p.qty.toLocaleString()} ${unit}` : ""}</td>
+                <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "#1a3c6e" }}>{baht(p.price)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -119,7 +146,7 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: "#f8faff" }}>
-                {["Vendor", "ราคาล่าสุด", "ซื้อล่าสุด", "เฉลี่ย", "ช่วงราคา", "จำนวนซื้อ", ""].map((h, i) => (
+                {["Vendor", "ราคาล่าสุด", "ซื้อล่าสุด", "PO ล่าสุด", "เฉลี่ย", "ช่วงราคา", "จำนวนซื้อ", ""].map((h, i) => (
                   <th key={h || i} style={{ padding: "10px 12px", textAlign: i === 0 ? "left" : "right", fontSize: "11px", color: "#64748b", fontWeight: 700, borderBottom: "2px solid #e2e8f0" }}>{h}</th>
                 ))}
               </tr>
@@ -139,6 +166,7 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, color: best ? "#16a34a" : "#1a3c6e" }}>{baht(v.lastPrice)}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "#94a3b8", fontSize: "12px" }}>{v.lastDate || "-"}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: "#94a3b8", fontSize: "12px", fontFamily: "monospace" }}>{v.lastPoNumber || "-"}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "#475569" }}>{baht(v.avgPrice)}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "#94a3b8", fontSize: "12px" }}>
                         {v.minPrice === v.maxPrice ? "-" : `${bahtShort(v.minPrice)}–${bahtShort(v.maxPrice)}`}
@@ -153,7 +181,7 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
                     </tr>
                     {open && (
                       <tr style={{ background: best ? "#f0fdf4" : "#fafbff", borderBottom: "1px solid #f1f5f9" }}>
-                        <td colSpan={7} style={{ padding: "4px 16px 16px" }}>
+                        <td colSpan={8} style={{ padding: "4px 16px 16px" }}>
                           {loadingHistory && !history
                             ? <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#94a3b8" }}>กำลังโหลดประวัติราคา...</p>
                             : <PriceHistoryChart points={points} unit={item.unit} />}
@@ -356,17 +384,17 @@ export default function ItemMasterPage() {
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>🔍 ค้นหา</label>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="รหัสสินค้า, ชื่อ, Vendor, หมวดหมู่ — พิมพ์ได้หลายคำ"
-                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5" }} />
+                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "#1a3c6e" }} />
             </div>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>หมวดหมู่</label>
-              <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px" }}>
+              <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>เรียงตาม</label>
-              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px" }}>
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
                 <option value="spend">ยอดซื้อสูงสุด</option>
                 <option value="vendors">จำนวน Vendor</option>
                 <option value="qty">จำนวนที่ซื้อ</option>
