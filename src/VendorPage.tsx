@@ -87,6 +87,7 @@ interface Vendor {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
+  companies: string[];
 }
 
 function bahtFull(n: number) {
@@ -213,7 +214,14 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
             <div style={{ flex: 1, marginRight: "12px" }}>
               <p style={{ margin: "0 0 4px", color: "rgba(226,201,126,0.9)", fontSize: "12px", fontWeight: "700" }}>{vendor.vendorCode} · {GROUP_LABEL[vendor.vendorGroup] || vendor.vendorGroup}</p>
-              <h2 style={{ margin: 0, color: "white", fontSize: "20px", fontWeight: "700", lineHeight: "1.3" }}>{vendor.name}</h2>
+              <h2 style={{ margin: "0 0 8px", color: "white", fontSize: "20px", fontWeight: "700", lineHeight: "1.3" }}>{vendor.name}</h2>
+              {(vendor.companies || []).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {vendor.companies.map((c) => (
+                    <span key={c} style={{ background: "rgba(255,255,255,0.15)", color: "white", padding: "2px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700" }}>{c}</span>
+                  ))}
+                </div>
+              )}
             </div>
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", color: "white", fontSize: "18px", flexShrink: 0 }}>✕</button>
           </div>
@@ -415,6 +423,7 @@ export default function VendorPage() {
   const [filterCategory, setFilterCategory] = useState("ทั้งหมด");
   const [filterStatus, setFilterStatus] = useState("ทั้งหมด");
   const [filterGroup, setFilterGroup] = useState("ทั้งหมด");
+  const [filterCompany, setFilterCompany] = useState("ทั้งหมด");
   const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [sortKey, setSortKey] = useState<SortKey>("spend");
   const [detailVendor, setDetailVendor] = useState<Vendor | undefined>();
@@ -435,6 +444,7 @@ export default function VendorPage() {
           monthlySpend: r.monthlySpend || {}, status: r.status || "active",
           note: r.note || "", source: r.source || "",
           contactPerson: r.contactPerson || "", contactPhone: r.contactPhone || "", contactEmail: r.contactEmail || "",
+          companies: r.companies || [],
         } as Vendor;
       }));
       setLoading(false);
@@ -463,17 +473,25 @@ export default function VendorPage() {
     return { catData, monData, topVendors };
   }, [vendors]);
 
+  const companyOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const v of vendors) for (const c of v.companies || []) set.add(c);
+    return ["ทั้งหมด", ...[...set].sort()];
+  }, [vendors]);
+
   const filtered = vendors.filter(v => {
     const s = search.toLowerCase();
     const matchSearch = s === "" || v.name.toLowerCase().includes(s) ||
       v.vendorCode.toLowerCase().includes(s) ||
       v.categories.some(c => c.toLowerCase().includes(s)) ||
       v.note.toLowerCase().includes(s) ||
-      v.contactPerson.toLowerCase().includes(s);
+      v.contactPerson.toLowerCase().includes(s) ||
+      (v.companies || []).some(c => c.toLowerCase().includes(s));
     const matchCat = filterCategory === "ทั้งหมด" || v.categories.includes(filterCategory);
     const matchStatus = filterStatus === "ทั้งหมด" || v.status === filterStatus;
     const matchGroup = filterGroup === "ทั้งหมด" || v.vendorGroup === filterGroup;
-    return matchSearch && matchCat && matchStatus && matchGroup;
+    const matchCompany = filterCompany === "ทั้งหมด" || (v.companies || []).includes(filterCompany);
+    return matchSearch && matchCat && matchStatus && matchGroup && matchCompany;
   }).sort((a, b) => {
     if (sortKey === "name") return a.name.localeCompare(b.name, "th");
     if (sortKey === "lastPurchase") return (b.lastPurchase || "").localeCompare(a.lastPurchase || "");
@@ -487,6 +505,7 @@ export default function VendorPage() {
       "รหัส": v.vendorCode,
       "ชื่อบริษัท": v.name,
       "กลุ่ม": GROUP_LABEL[v.vendorGroup] || v.vendorGroup,
+      "บริษัทในเครือ": (v.companies || []).join(", "),
       "หมวดหมู่": v.categories.join(", "),
       "ยอดซื้อสะสม": v.totalSpend,
       "จำนวน PO": v.numPOs,
@@ -645,7 +664,7 @@ export default function VendorPage() {
 
         {/* FILTERS */}
         <div style={{ background: "white", borderRadius: "20px", padding: "22px", boxShadow: "0 4px 24px rgba(26,60,110,0.08)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>🔍 ค้นหา</label>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ชื่อบริษัท, รหัส, หมวดหมู่..."
@@ -654,6 +673,7 @@ export default function VendorPage() {
                 onBlur={e => { e.target.style.borderColor = "#e2c97e"; }} />
             </div>
             {[
+              { label: "🏢 บริษัท", value: filterCompany, setter: setFilterCompany, options: companyOptions },
               { label: "หมวดหมู่", value: filterCategory, setter: setFilterCategory, options: ["ทั้งหมด", ...CATEGORIES] },
               { label: "กลุ่ม", value: filterGroup, setter: setFilterGroup, options: ["ทั้งหมด", "LOCAL", "GROUP", "OVERSEA", "EMP"] },
               { label: "สถานะ", value: filterStatus, setter: setFilterStatus, options: ["ทั้งหมด", "active", "inactive"] },
@@ -718,7 +738,10 @@ export default function VendorPage() {
                 style={{ animationDelay: `${Math.min(idx, 12) * 0.04}s`, background: "white", borderRadius: "18px", padding: "22px", boxShadow: "0 4px 16px rgba(26,60,110,0.08)", borderTop: `3px solid ${v.status === "active" ? "#e2c97e" : "#e2e8f0"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
                   <div style={{ flex: 1, marginRight: "10px" }}>
-                    <p style={{ margin: "0 0 4px", fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>{v.vendorCode} · {GROUP_LABEL[v.vendorGroup] || v.vendorGroup}</p>
+                    <p style={{ margin: "0 0 4px", fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>
+                      {v.vendorCode} · {GROUP_LABEL[v.vendorGroup] || v.vendorGroup}
+                      {(v.companies || []).length > 0 && <> · <span style={{ color: "#1a3c6e" }}>{v.companies.join(", ")}</span></>}
+                    </p>
                     <h3 style={{ margin: 0, color: "#1a3c6e", fontSize: "15px", fontWeight: "700", lineHeight: "1.35" }}>{highlight(v.name, search)}</h3>
                   </div>
                   <button onClick={e => { e.stopPropagation(); handleToggleStatus(v); }} style={{
@@ -757,8 +780,8 @@ export default function VendorPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)" }}>
-                  {["รหัส", "ชื่อบริษัท", "หมวดหมู่", "ยอดซื้อ", "PO", "ล่าสุด", "สถานะ"].map((h, i) => (
-                    <th key={i} style={{ padding: "14px 16px", textAlign: i >= 3 && i <= 4 ? "right" : "left", fontWeight: "700", fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
+                  {["รหัส", "ชื่อบริษัท", "บริษัทในเครือ", "หมวดหมู่", "ยอดซื้อ", "PO", "ล่าสุด", "สถานะ"].map((h, i) => (
+                    <th key={i} style={{ padding: "14px 16px", textAlign: i >= 4 && i <= 5 ? "right" : "left", fontWeight: "700", fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -769,6 +792,7 @@ export default function VendorPage() {
                     style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: hoveredId === v.id ? "#f8faff" : i % 2 === 0 ? "white" : "#fafbff" }}>
                     <td style={{ padding: "14px 16px", color: "#94a3b8", fontWeight: "700", fontSize: "12px" }}>{v.vendorCode}</td>
                     <td style={{ padding: "14px 16px", fontWeight: "700", color: "#1a3c6e" }}>{highlight(v.name, search)}</td>
+                    <td style={{ padding: "14px 16px", color: "#64748b", fontSize: "12px" }}>{(v.companies || []).join(", ") || "-"}</td>
                     <td style={{ padding: "14px 16px" }}><CategoryChips cats={v.categories} max={2} /></td>
                     <td style={{ padding: "14px 16px", textAlign: "right", fontWeight: "700", color: "#1a3c6e" }}>{bahtShort(v.totalSpend)}</td>
                     <td style={{ padding: "14px 16px", textAlign: "right", color: "#475569" }}>{v.numPOs}</td>
