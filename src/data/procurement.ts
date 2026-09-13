@@ -61,6 +61,7 @@ export interface ItemVendorStat {
   vendorName: string;
   lastPrice: number;
   lastDate: string;
+  lastPoNumber: string;
   avgPrice: number;
   minPrice: number;
   maxPrice: number;
@@ -289,7 +290,7 @@ export function aggregateItems(
   productMap?: Map<string, { productName: string; searchName: string }>,
 ): Map<string, ItemAgg> {
   // itemNumber → vendorCode → records
-  const acc = new Map<string, Map<string, { name: string; prices: { p: number; d: string }[]; qty: number }>>();
+  const acc = new Map<string, Map<string, { name: string; prices: { p: number; d: string; po: string }[]; qty: number }>>();
   const meta = new Map<string, { productName: string; category: string; unit: string }>();
   for (const l of lines) {
     if (!l.itemNumber || !countsAsSpend(l.status)) continue;
@@ -299,7 +300,7 @@ export function aggregateItems(
     let r = vm.get(l.vendorCode);
     if (!r) { r = { name: l.vendorName, prices: [], qty: 0 }; vm.set(l.vendorCode, r); }
     if (l.vendorName) r.name = l.vendorName;
-    if (l.unitPrice > 0) r.prices.push({ p: l.unitPrice, d: l.poDate });
+    if (l.unitPrice > 0) r.prices.push({ p: l.unitPrice, d: l.poDate, po: l.poNumber });
     r.qty += l.qty;
     const m = meta.get(l.itemNumber);
     if (!m) meta.set(l.itemNumber, { productName: l.productName, category: l.category, unit: l.unit });
@@ -320,7 +321,7 @@ export function aggregateItems(
       const avg = ps.reduce((s, x) => s + x, 0) / ps.length;
       vendors.push({
         vendorCode, vendorName: r.name,
-        lastPrice: last.p, lastDate: last.d,
+        lastPrice: last.p, lastDate: last.d, lastPoNumber: last.po,
         avgPrice: avg, minPrice: Math.min(...ps), maxPrice: Math.max(...ps),
         qty: r.qty, count: ps.length,
       });

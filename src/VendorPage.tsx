@@ -254,18 +254,18 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
               <div>
                 <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>ชื่อผู้ติดต่อ</label>
                 <input value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="เช่น คุณสมชาย"
-                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box", color: "#1a3c6e", background: "white" }} />
               </div>
               <div>
                 <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>เบอร์โทร</label>
                 <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="08X-XXX-XXXX"
-                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box", color: "#1a3c6e", background: "white" }} />
               </div>
             </div>
             <div style={{ marginBottom: "10px" }}>
               <label style={{ display: "block", marginBottom: "4px", fontSize: "10px", color: "#94a3b8", fontWeight: "700" }}>อีเมล</label>
               <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="name@company.com"
-                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box" }} />
+                style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1.5px solid #e2e8f0", fontSize: "13px", boxSizing: "border-box", color: "#1a3c6e", background: "white" }} />
             </div>
             <button onClick={saveContact} style={{ width: "100%", padding: "9px", background: "linear-gradient(135deg, #1a3c6e, #2d5a9e)", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", color: "white", fontSize: "13px" }}>
               💾 บันทึกข้อมูลติดต่อ
@@ -393,7 +393,7 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
             <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#94a3b8", fontWeight: "700" }}>💬 หมายเหตุ</p>
             <textarea value={note} onChange={e => setNote(e.target.value)} onBlur={() => onSaveNote(note)} rows={2}
               placeholder="พิมพ์หมายเหตุ แล้วคลิกที่อื่นเพื่อบันทึก..."
-              style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", boxSizing: "border-box", resize: "vertical", fontSize: "14px" }} />
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid #e2e8f0", boxSizing: "border-box", resize: "vertical", fontSize: "14px", color: "#1a3c6e", background: "white" }} />
           </div>
 
           <button onClick={onDelete} style={{ width: "100%", padding: "13px", background: "linear-gradient(135deg, #fff5f5, #fee2e2)", border: "1px solid #fecaca", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "#dc2626", fontSize: "14px" }}>🗑️ ลบ Vendor นี้</button>
@@ -644,7 +644,7 @@ export default function VendorPage() {
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>🔍 ค้นหา</label>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ชื่อบริษัท, รหัส, หมวดหมู่..."
-                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5" }}
+                style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "2px solid #e2c97e", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "#1a3c6e" }}
                 onFocus={e => { e.target.style.borderColor = "#1a3c6e"; }}
                 onBlur={e => { e.target.style.borderColor = "#e2c97e"; }} />
             </div>
@@ -655,14 +655,14 @@ export default function VendorPage() {
             ].map(f => (
               <div key={f.label}>
                 <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>{f.label}</label>
-                <select value={f.value} onChange={e => f.setter(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px" }}>
+                <select value={f.value} onChange={e => f.setter(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
                   {f.options.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
             ))}
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "#94a3b8" }}>เรียงตาม</label>
-              <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px" }}>
+              <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid #e2e8f0", fontSize: "13px", color: "#1a3c6e", background: "white" }}>
                 <option value="spend">ยอดซื้อสูงสุด</option>
                 <option value="lastPurchase">ซื้อล่าสุด</option>
                 <option value="name">ชื่อ A-Z</option>
