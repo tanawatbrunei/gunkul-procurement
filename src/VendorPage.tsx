@@ -641,7 +641,7 @@ export default function VendorPage() {
                     </AreaChart>
                   </ResponsiveContainer>
                 </ChartCard>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "16px" }}>
                   <ChartCard title="ยอดซื้อแยกหมวด (Top 10)" hint="หมวดที่ใช้งบมากสุด">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={overview.catData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
@@ -672,8 +672,8 @@ export default function VendorPage() {
 
         {/* FILTERS */}
         <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "var(--shadow)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
-            <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", alignItems: "end" }}>
+            <div style={{ gridColumn: "span 2", minWidth: "220px" }}>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>ค้นหา</label>
               <div style={{ position: "relative" }}>
                 <IconSearch size={15} stroke={2} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--navy)" }} />

@@ -406,7 +406,7 @@ export default function ItemMasterPage() {
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 24px" }}>
         {/* FILTERS */}
         <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "var(--shadow)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "14px", alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px", alignItems: "end" }}>
             <div>
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "var(--text-faint)" }}>บริษัท</label>
               <select value={filterCompany} onChange={(e) => setFilterCompany(e.target.value)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid var(--border)", fontSize: "13px", color: "var(--primary)", background: "var(--surface)" }}>
