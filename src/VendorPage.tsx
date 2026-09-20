@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection, onSnapshot, updateDoc, deleteDoc, doc,
 } from "firebase/firestore";
@@ -12,7 +12,7 @@ import {
   IconX, IconCircleCheck, IconCircleX, IconPlayerPauseFilled, IconAddressBook,
   IconDeviceFloppy, IconPencil, IconReceipt2, IconMessage, IconTrash, IconLock,
   IconBuilding, IconCoin, IconFileSpreadsheet, IconUpload, IconSearch,
-  IconLayoutGrid, IconList, IconArrowRight, IconCheck,
+  IconLayoutGrid, IconList, IconArrowRight, IconArrowLeft, IconCheck,
 } from "@tabler/icons-react";
 import { fetchVendorPOLines, countsAsSpend, type POLine } from "./data/procurement";
 import { isAdmin } from "./config/admins";
@@ -160,8 +160,8 @@ function ChartCard({ title, hint, children }: { title: string; hint?: string; ch
   );
 }
 
-function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCategories, onSaveNote, onSaveContact }: {
-  vendor: Vendor; onClose: () => void; onDelete: () => void; onToggleStatus: () => void;
+function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, onSaveCategories, onSaveNote, onSaveContact }: {
+  vendor: Vendor; asPage?: boolean; onClose: () => void; onDelete: () => void; onToggleStatus: () => void;
   onSaveCategories: (cats: string[]) => void; onSaveNote: (note: string) => void;
   onSaveContact: (contact: { contactPerson: string; contactPhone: string; contactEmail: string }) => void;
 }) {
@@ -213,8 +213,10 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
     [vendor]);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={onClose}>
-      <div style={{ background: "var(--surface)", borderRadius: "24px", width: "600px", maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }} onClick={e => e.stopPropagation()}>
+    <div style={asPage ? undefined : { position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={asPage ? undefined : onClose}>
+      <div style={asPage
+        ? { background: "var(--surface)", borderRadius: "24px", boxShadow: "var(--shadow-lg)", overflow: "hidden" }
+        : { background: "var(--surface)", borderRadius: "24px", width: "600px", maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }} onClick={e => e.stopPropagation()}>
         <div style={{ background: "linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%)", padding: "30px 32px", borderRadius: "24px 24px 0 0", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(226,201,126,0.12)" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
@@ -229,7 +231,7 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
                 </div>
               )}
             </div>
-            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><IconX size={19} stroke={2} /></button>
+            {!asPage && <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "36px", height: "36px", cursor: "pointer", color: "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><IconX size={19} stroke={2} /></button>}
           </div>
           <div style={{ marginTop: "16px" }}>
             <button onClick={onToggleStatus} style={{
@@ -424,7 +426,7 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
   );
 }
 
-export default function VendorPage({ openVendor }: { openVendor?: { code: string; n: number } | null }) {
+export default function VendorPage({ routeVendorCode }: { routeVendorCode?: string | null }) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -462,15 +464,6 @@ export default function VendorPage({ openVendor }: { openVendor?: { code: string
     });
     return () => unsub();
   }, []);
-
-  // Deep link from another page (e.g. Item Master): open that vendor's detail once
-  // the vendors have loaded. `handledOpen` stops it re-opening after the user closes it.
-  const handledOpen = useRef(0);
-  useEffect(() => {
-    if (!openVendor || openVendor.n === handledOpen.current) return;
-    const v = vendors.find(x => x.vendorCode === openVendor.code || x.id === openVendor.code);
-    if (v) { handledOpen.current = openVendor.n; setDetailVendor(v); }
-  }, [openVendor, vendors]);
 
   const overview = useMemo(() => {
     const cat: Record<string, number> = {};
@@ -545,6 +538,7 @@ export default function VendorPage({ openVendor }: { openVendor?: { code: string
     if (window.confirm("ต้องการลบ Vendor นี้มั้ย?")) {
       await deleteDoc(doc(db, "vendors", id));
       setDetailVendor(undefined);
+      if (routeVendorCode) location.hash = "#/vendor";
     }
   };
   const handleToggleStatus = async (v: Vendor) => {
@@ -563,6 +557,32 @@ export default function VendorPage({ openVendor }: { openVendor?: { code: string
     await updateDoc(doc(db, "vendors", v.id), contact);
     if (detailVendor?.id === v.id) setDetailVendor({ ...detailVendor, ...contact });
   };
+
+  if (routeVendorCode) {
+    const routed = vendors.find(x => x.vendorCode === routeVendorCode || x.id === routeVendorCode);
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg)", fontFamily: "sans-serif" }}>
+        <div style={{ maxWidth: "860px", margin: "0 auto", padding: "24px" }}>
+          <a href="#/vendor" style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "16px", fontSize: "13px", fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}>
+            <IconArrowLeft size={15} stroke={2} /> กลับไปรายการ Vendor
+          </a>
+          {loading ? (
+            <p style={{ color: "var(--text-faint)" }}>กำลังโหลด...</p>
+          ) : routed ? (
+            <VendorDetailModal key={routed.id} asPage vendor={routed}
+              onClose={() => { location.hash = "#/vendor"; }}
+              onDelete={() => handleDelete(routed.id)}
+              onToggleStatus={() => handleToggleStatus(routed)}
+              onSaveCategories={(c) => handleSaveCategories(routed, c)}
+              onSaveNote={(n) => handleSaveNote(routed, n)}
+              onSaveContact={(c) => handleSaveContact(routed, c)} />
+          ) : (
+            <p style={{ color: "var(--text-muted)" }}>ไม่พบ Vendor รหัส {routeVendorCode}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", fontFamily: "sans-serif" }}>
