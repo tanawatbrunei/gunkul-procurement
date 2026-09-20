@@ -49,47 +49,52 @@ function HistoryTooltip({ active, payload }: { active?: boolean; payload?: { pay
 
 function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: string }) {
   const perUnit = unit ? `บาท/${unit}` : "บาท/หน่วย";
-  if (points.length < 2) {
-    return (
-      <p style={{ margin: "8px 0 0", fontSize: "12px", color: "var(--text-faint)" }}>
-        ℹ️ มีประวัติการซื้อเพียง {points.length} ครั้ง — ยังไม่พอวาดกราฟแนวโน้มราคา
-      </p>
-    );
-  }
   const newestFirst = [...points].sort((a, b) => (a.date < b.date ? 1 : -1));
   return (
     <div style={{ marginTop: "8px" }}>
-      <p style={{ margin: "0 0 6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
-        แนวโน้มราคาซื้อ ({perUnit}) — แกนX: วันที่ซื้อ
-      </p>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={points} margin={{ top: 8, right: 18, bottom: 4, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--text-faint)" }} width={58} tickFormatter={(v) => bahtShort(Number(v))} />
-          <Tooltip content={<HistoryTooltip />} />
-          <Line type="linear" dataKey="price" stroke="var(--primary-hover)" strokeWidth={2}
-            dot={{ r: 3, fill: "var(--primary-hover)" }} activeDot={{ r: 5 }} />
-        </LineChart>
-      </ResponsiveContainer>
+      {points.length < 2 ? (
+        <p style={{ margin: "0 0 4px", fontSize: "12px", color: "var(--text-faint)" }}>
+          ℹ️ มีประวัติการซื้อเพียง {points.length} ครั้ง — ยังไม่พอวาดกราฟแนวโน้มราคา
+        </p>
+      ) : (
+        <>
+          <p style={{ margin: "0 0 6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
+            แนวโน้มราคาซื้อ ({perUnit}) — แกนX: วันที่ซื้อ
+          </p>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={points} margin={{ top: 8, right: 18, bottom: 4, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
+              <YAxis tick={{ fontSize: 10, fill: "var(--text-faint)" }} width={58} tickFormatter={(v) => bahtShort(Number(v))} />
+              <Tooltip content={<HistoryTooltip />} />
+              <Line type="linear" dataKey="price" stroke="var(--primary-hover)" strokeWidth={2}
+                dot={{ r: 3, fill: "var(--primary-hover)" }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      )}
 
-      <p style={{ margin: "12px 0 6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
-        อ้างอิงเลข PO ต่อครั้งที่ซื้อ (ใหม่สุดก่อน)
-      </p>
-      <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-          <tbody>
-            {newestFirst.map((p, i) => (
-              <tr key={`${p.poNumber}-${i}`} style={{ borderBottom: i < newestFirst.length - 1 ? "1px solid var(--surface-2)" : "none" }}>
-                <td style={{ padding: "6px 10px", color: "var(--text-faint)" }}>{p.date}</td>
-                <td style={{ padding: "6px 10px", color: "var(--primary)", fontFamily: "monospace", fontWeight: 700 }}>{p.poNumber || "-"}</td>
-                <td style={{ padding: "6px 10px", textAlign: "right", color: "var(--text-muted)" }}>{p.qty ? `${p.qty.toLocaleString()} ${unit}` : ""}</td>
-                <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "var(--primary)" }}>{baht(p.price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {points.length > 0 && (
+        <>
+          <p style={{ margin: "12px 0 6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
+            อ้างอิงเลข PO ต่อครั้งที่ซื้อ (ใหม่สุดก่อน)
+          </p>
+          <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+              <tbody>
+                {newestFirst.map((p, i) => (
+                  <tr key={`${p.poNumber}-${i}`} style={{ borderBottom: i < newestFirst.length - 1 ? "1px solid var(--surface-2)" : "none" }}>
+                    <td style={{ padding: "6px 10px", color: "var(--text-faint)", whiteSpace: "nowrap" }}>{p.date}</td>
+                    <td style={{ padding: "6px 10px", color: "var(--primary)", fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap", userSelect: "all" }}>{p.poNumber || "-"}</td>
+                    <td style={{ padding: "6px 10px", textAlign: "right", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{p.qty ? `${p.qty.toLocaleString()} ${unit}` : ""}</td>
+                    <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap" }}>{baht(p.price)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -155,6 +160,7 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
           )}
 
           <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 800, color: "var(--primary)" }}>เปรียบเทียบราคาต่อหน่วยแต่ละ Vendor ({unitLabel} · เรียงจากถูกสุด)</p>
+          <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: "var(--surface-2)" }}>
@@ -171,14 +177,14 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
                 return (
                   <Fragment key={v.vendorCode}>
                     <tr style={{ background: best ? "color-mix(in srgb, var(--success) 15%, var(--surface))" : "var(--surface)", borderBottom: open ? "none" : "1px solid var(--surface-2)" }}>
-                      <td style={{ padding: "10px 12px" }}>
+                      <td style={{ padding: "10px 12px", minWidth: "150px" }}>
                         {best && <span style={{ background: "var(--success)", color: "white", fontSize: "9px", fontWeight: 800, padding: "1px 6px", borderRadius: "6px", marginRight: "6px" }}>ถูกสุด</span>}
                         <span style={{ fontWeight: 700, color: "var(--primary)" }}>{v.vendorName || v.vendorCode}</span>
                         <span style={{ display: "block", fontSize: "10px", color: "var(--text-faint)" }}>{v.vendorCode}</span>
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, color: best ? "var(--success)" : "var(--primary)" }}>{baht(v.lastPrice)}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>{v.lastDate || "-"}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace" }}>{v.lastPoNumber || "-"}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "nowrap", userSelect: "all" }}>{v.lastPoNumber || "-"}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-muted)" }}>{baht(v.avgPrice)}</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>
                         {v.minPrice === v.maxPrice ? "-" : `${bahtShort(v.minPrice)}–${bahtShort(v.maxPrice)}`}
@@ -205,6 +211,7 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
               })}
             </tbody>
           </table>
+          </div>
           {item.numVendors === 1 && (
             <p style={{ margin: "14px 0 0", fontSize: "12px", color: "var(--text-faint)" }}>ℹ️ สินค้านี้ซื้อจาก vendor รายเดียว — ยังไม่มีข้อมูลให้เปรียบเทียบ</p>
           )}
