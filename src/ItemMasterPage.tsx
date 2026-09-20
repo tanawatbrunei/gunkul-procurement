@@ -99,7 +99,7 @@ function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: strin
   );
 }
 
-function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void }) {
+function ItemDetailModal({ item, onClose, onOpenVendor }: { item: ItemAgg; onClose: () => void; onOpenVendor?: (vendorCode: string) => void }) {
   const vendors: ItemVendorStat[] = [...item.vendors].sort((a, b) => a.lastPrice - b.lastPrice);
   const cheapest = vendors[0]?.vendorCode;
   const unitLabel = item.unit ? `บาท/${item.unit}` : "บาท/หน่วย";
@@ -179,18 +179,23 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
                     <tr style={{ background: best ? "color-mix(in srgb, var(--success) 15%, var(--surface))" : "var(--surface)", borderBottom: open ? "none" : "1px solid var(--surface-2)" }}>
                       <td style={{ padding: "10px 12px", minWidth: "150px" }}>
                         {best && <span style={{ background: "var(--success)", color: "white", fontSize: "9px", fontWeight: 800, padding: "1px 6px", borderRadius: "6px", marginRight: "6px" }}>ถูกสุด</span>}
-                        <span style={{ fontWeight: 700, color: "var(--primary)" }}>{v.vendorName || v.vendorCode}</span>
+                        {onOpenVendor ? (
+                          <button onClick={() => { onClose(); onOpenVendor(v.vendorCode); }} title="ดูข้อมูล Vendor นี้"
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", font: "inherit", fontWeight: 700, color: "var(--primary)", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px" }}>
+                            {v.vendorName || v.vendorCode}
+                          </button>
+                        ) : <span style={{ fontWeight: 700, color: "var(--primary)" }}>{v.vendorName || v.vendorCode}</span>}
                         <span style={{ display: "block", fontSize: "10px", color: "var(--text-faint)" }}>{v.vendorCode}</span>
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, color: best ? "var(--success)" : "var(--primary)" }}>{baht(v.lastPrice)}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>{v.lastDate || "-"}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "nowrap", userSelect: "all" }}>{v.lastPoNumber || "-"}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-muted)" }}>{baht(v.avgPrice)}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>
+                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: best ? "var(--success)" : "var(--primary)" }}>{baht(v.lastPrice)}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>{v.lastDate || "-"}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "nowrap", userSelect: "all" }}>{v.lastPoNumber || "-"}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-muted)" }}>{baht(v.avgPrice)}</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>
                         {v.minPrice === v.maxPrice ? "-" : `${bahtShort(v.minPrice)}–${bahtShort(v.maxPrice)}`}
                       </td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-muted)" }}>{v.count}×</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-muted)" }}>{v.count}×</td>
+                      <td style={{ padding: "10px 8px", textAlign: "right" }}>
                         <button onClick={() => toggleHistory(v.vendorCode)}
                           style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: open ? "var(--navy)" : "var(--surface-2)", color: open ? "white" : "var(--primary)", border: "none", borderRadius: "8px", padding: "5px 10px", fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                           <IconChartLine size={13} stroke={2} /> ประวัติ {open ? "▲" : "▼"}
@@ -293,7 +298,7 @@ function ImportHistoryModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function ItemMasterPage() {
+export default function ItemMasterPage({ onOpenVendor }: { onOpenVendor?: (vendorCode: string) => void }) {
   const [items, setItems] = useState<ItemAgg[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -366,7 +371,7 @@ export default function ItemMasterPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", fontFamily: "sans-serif" }}>
-      {detail && <ItemDetailModal item={detail} onClose={() => setDetail(null)} />}
+      {detail && <ItemDetailModal item={detail} onClose={() => setDetail(null)} onOpenVendor={onOpenVendor} />}
       {showImport && <ImportModal onClose={() => setShowImport(false)} />}
       {showHistory && <ImportHistoryModal onClose={() => setShowHistory(false)} />}
 

@@ -28,6 +28,13 @@ export default function App() {
     setVisited((v) => (v.has(p) ? v : new Set(v).add(p)));
     setCurrentPage(p);
   };
+  // Item Master → "open this vendor": remember which vendor, then switch pages.
+  // `n` makes repeat clicks on the same vendor register as a new request.
+  const [vendorToOpen, setVendorToOpen] = useState<{ code: string; n: number } | null>(null);
+  const openVendor = (code: string) => {
+    setVendorToOpen({ code, n: Date.now() });
+    navigate("vendor");
+  };
   const pageStyle = (p: Page) => ({ display: currentPage === p ? "block" : "none" } as const);
 
   useState(() => {
@@ -56,8 +63,8 @@ export default function App() {
           {visited.has("home") && <div style={pageStyle("home")}><HomePage setPage={navigate} /></div>}
           {visited.has("dashboard") && <div style={pageStyle("dashboard")}><DashboardPage /></div>}
           {visited.has("project") && <div style={pageStyle("project")}><ProjectPage /></div>}
-          {visited.has("vendor") && <div style={pageStyle("vendor")}><VendorPage /></div>}
-          {visited.has("itemmaster") && <div style={pageStyle("itemmaster")}><ItemMasterPage /></div>}
+          {visited.has("vendor") && <div style={pageStyle("vendor")}><VendorPage openVendor={vendorToOpen} /></div>}
+          {visited.has("itemmaster") && <div style={pageStyle("itemmaster")}><ItemMasterPage onOpenVendor={openVendor} /></div>}
           {visited.has("tracking") && <div style={pageStyle("tracking")}><TrackingPage /></div>}
           {visited.has("team") && <div style={pageStyle("team")}><OrgChartPage /></div>}
           {visited.has("knowledge") && <div style={pageStyle("knowledge")}><KnowledgePage /></div>}

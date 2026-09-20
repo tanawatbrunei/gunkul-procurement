@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   collection, onSnapshot, updateDoc, deleteDoc, doc,
 } from "firebase/firestore";
@@ -424,7 +424,7 @@ function VendorDetailModal({ vendor, onClose, onDelete, onToggleStatus, onSaveCa
   );
 }
 
-export default function VendorPage() {
+export default function VendorPage({ openVendor }: { openVendor?: { code: string; n: number } | null }) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -462,6 +462,15 @@ export default function VendorPage() {
     });
     return () => unsub();
   }, []);
+
+  // Deep link from another page (e.g. Item Master): open that vendor's detail once
+  // the vendors have loaded. `handledOpen` stops it re-opening after the user closes it.
+  const handledOpen = useRef(0);
+  useEffect(() => {
+    if (!openVendor || openVendor.n === handledOpen.current) return;
+    const v = vendors.find(x => x.vendorCode === openVendor.code || x.id === openVendor.code);
+    if (v) { handledOpen.current = openVendor.n; setDetailVendor(v); }
+  }, [openVendor, vendors]);
 
   const overview = useMemo(() => {
     const cat: Record<string, number> = {};
