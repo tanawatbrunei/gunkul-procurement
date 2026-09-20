@@ -3,7 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 import SyncStatus from "./components/SyncStatus";
 import TrackingSummary, { StatCards, StatDefinitions } from "./TrackingSummary";
-import { computeTrackingStats } from "./data/trackingStats";
+import { computeTrackingStats, isPlaceholderRow } from "./data/trackingStats";
 import { subscribeTabs, getTabsSnapshot, getTabsError, subscribeRows, getRowsSnapshot } from "./data/trackingStore";
 import * as XLSX from "xlsx";
 import {
@@ -16,6 +16,7 @@ import {
   IconLayoutDashboard,
   IconChevronUp,
   IconChevronDown,
+  IconChevronRight,
   IconSelector,
   IconExternalLink,
 } from "@tabler/icons-react";
@@ -162,14 +163,23 @@ const COLUMNS: { label: string; key?: SortKey }[] = [
   { label: "Project", key: "project" },
   { label: "Description", key: "description" },
   { label: "Vendor", key: "vendor" },
-  { label: "Qty", key: "qty" },
-  { label: "ก่อน VAT", key: "subtotal" },
-  { label: "VAT 7%", key: "vat" },
-  { label: "สุทธิ", key: "total" },
   { label: "Status", key: "status" },
   { label: "ทำรับ", key: "deliveredDate" },
   { label: "Remark", key: "remark" },
 ];
+
+/* The web table is for monitoring, so quantity / VAT / totals are not shown.
+   Excel export still includes them (inserted before Status, original order). */
+const MONEY_COLUMNS: { label: string; key?: SortKey }[] = [
+  { label: "Qty", key: "qty" },
+  { label: "ก่อน VAT", key: "subtotal" },
+  { label: "VAT 7%", key: "vat" },
+  { label: "สุทธิ", key: "total" },
+];
+const EXPORT_COLUMNS = (() => {
+  const i = COLUMNS.findIndex((c) => c.key === "status");
+  return [...COLUMNS.slice(0, i), ...MONEY_COLUMNS, ...COLUMNS.slice(i)];
+})();
 
 /* First 4 columns (flag, No., Company, PR No.) stay pinned to the left while
    scrolling horizontally, so the row's identity is never lost off-screen. */
@@ -287,6 +297,7 @@ export default function TrackingPage() {
   const [rows, setRows] = useState<TrackingRow[]>([]);
   // Landing view is the team summary; a person's tab opens their own table.
   const [showSummary, setShowSummary] = useState(true);
+  const [showDone, setShowDone] = useState(false);
   const [rowsByTab, setRowsByTab] = useState<Record<string, TrackingRow[]>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewingRow, setViewingRow] = useState<TrackingRow | null>(null);
@@ -372,7 +383,7 @@ export default function TrackingPage() {
     const data = filteredRows.map((r) => {
       const { subtotal, vat, total } = computeMoney(r);
       const out: Record<string, unknown> = {};
-      for (const { label, key } of COLUMNS) {
+      for (const { label, key } of EXPORT_COLUMNS) {
         if (!key || !label) continue;
         out[label] = key === "subtotal" ? subtotal : key === "vat" ? vat : key === "total" ? total : r[key];
       }
@@ -385,6 +396,12 @@ export default function TrackingPage() {
   };
 
   const personStats = useMemo(() => computeTrackingStats(rows), [rows]);
+
+  // Monitoring view: what is still open comes first; finished work (Completed /
+  // Cancelled) sits below and is collapsed unless the user is looking for it
+  // (searching, or filtering to a finished status). Reserved blank rows are not work.
+  const isDone = (r: TrackingRow) => r.status === "Completed" || r.status === "Cancelled";
+  const isSearchingDone = search.trim() !== "" || statusFilter === "Completed" || statusFilter === "Cancelled";
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -509,102 +526,124 @@ export default function TrackingPage() {
             </button>
           </div>
 
-          {/* Table */}
-          <div style={{ overflow: "auto", maxHeight: "min(70vh, 760px)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>
-              <thead>
-                <tr style={{ background: "var(--bg-elevated)", textAlign: "left", color: "var(--text-muted)" }}>
-                  {COLUMNS.map(({ label, key }, i) => {
-                    const active = key && key === sortKey;
-                    const sticky = i < STICKY_WIDTHS.length;
-                    return (
-                      <th
-                        key={label || i}
-                        onClick={key ? () => toggleSort(key) : undefined}
-                        style={{
-                          position: "sticky", top: 0, zIndex: sticky ? 3 : 1, padding: "10px 12px",
-                          ...(sticky ? { left: stickyLeft(i), minWidth: STICKY_WIDTHS[i], width: STICKY_WIDTHS[i] } : {}),
-                          borderBottom: "1px solid var(--border)", background: "var(--bg-elevated)",
-                          cursor: key ? "pointer" : "default", userSelect: "none",
-                          color: active ? "var(--text-strong)" : "var(--text-muted)",
-                        }}
-                      >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-                          {label}
-                          {key && (
-                            active ? (
-                              sortDir === "asc" ? <IconChevronUp size={12} stroke={2} /> : <IconChevronDown size={12} stroke={2} />
-                            ) : (
-                              <IconSelector size={12} stroke={1.75} style={{ color: "var(--text-faint)" }} />
-                            )
-                          )}
-                        </span>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((r) => {
-                  const { subtotal, vat, total } = computeMoney(r);
-                  const statusColor = r.status ? STATUS_COLOR[r.status] : undefined;
-                  const rowBg = r.urgent ? "color-mix(in srgb, var(--danger) 8%, var(--surface))" : "var(--surface)";
-                  const stickyTd = (i: number): React.CSSProperties =>
-                    i < STICKY_WIDTHS.length
-                      ? { position: "sticky", left: stickyLeft(i), zIndex: 1, background: rowBg }
-                      : {};
-                  return (
-                    <tr
-                      key={r.id}
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        background: rowBg,
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setViewingRow(r)}
-                    >
-                      <td style={{ padding: "8px 12px", ...stickyTd(0) }}>
-                        {r.urgent ? <IconFlagFilled size={14} stroke={1.75} style={{ color: "var(--danger)" }} /> : <IconFlag size={14} stroke={1.75} style={{ color: "var(--text-faint)" }} />}
-                      </td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)", ...stickyTd(1) }}>{r.no}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)", ...stickyTd(2) }}>{r.company}</td>
-                      <td style={{ padding: "8px 12px", fontWeight: 600, color: "var(--text-strong)", ...stickyTd(3) }}>{r.prNo}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.prDate}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.paNo}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.paSubmittedDate}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.paApprovedDate}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.poNo}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.poSubmittedDate}</td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.poApprovedDate}</td>
-                      <td style={{ padding: "8px 12px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{r.project}</td>
-                      <td style={{ padding: "8px 12px", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{r.description}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.vendor}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.qty}{r.unit ? ` ${r.unit}` : ""}</td>
-                      <td style={{ padding: "8px 12px" }}>{subtotal ? baht(subtotal) : ""}</td>
-                      <td style={{ padding: "8px 12px" }}>{vat ? baht(vat) : ""}</td>
-                      <td style={{ padding: "8px 12px", fontWeight: 600 }}>{total ? baht(total) : ""}</td>
-                      <td style={{ padding: "8px 12px" }}>
-                        {r.status && (
-                          <span style={{ background: statusColor?.bg, color: statusColor?.fg, borderRadius: "var(--radius-full)", padding: "2px 9px", fontSize: "10.5px", fontWeight: 700 }}>
-                            {r.status}
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.deliveredDate}</td>
-                      <td style={{ padding: "8px 12px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-muted)" }}>{r.remark}</td>
+          {(() => {
+            const visible = filteredRows.filter((r) => !isPlaceholderRow(r));
+            const pendingList = visible.filter((r) => !isDone(r));
+            const doneList = visible.filter(isDone);
+            const doneOpen = showDone || isSearchingDone;
+
+            const renderTable = (list: TrackingRow[], emptyText: string) => (
+              <div style={{ overflow: "auto", maxHeight: "min(70vh, 760px)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>
+                  <thead>
+                    <tr style={{ background: "var(--bg-elevated)", textAlign: "left", color: "var(--text-muted)" }}>
+                      {COLUMNS.map(({ label, key }, i) => {
+                        const active = key && key === sortKey;
+                        const sticky = i < STICKY_WIDTHS.length;
+                        return (
+                          <th
+                            key={label || i}
+                            onClick={key ? () => toggleSort(key) : undefined}
+                            style={{
+                              position: "sticky", top: 0, zIndex: sticky ? 3 : 1, padding: "10px 12px",
+                              ...(sticky ? { left: stickyLeft(i), minWidth: STICKY_WIDTHS[i], width: STICKY_WIDTHS[i] } : {}),
+                              borderBottom: "1px solid var(--border)", background: "var(--bg-elevated)",
+                              cursor: key ? "pointer" : "default", userSelect: "none",
+                              color: active ? "var(--text-strong)" : "var(--text-muted)",
+                            }}
+                          >
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                              {label}
+                              {key && (
+                                active ? (
+                                  sortDir === "asc" ? <IconChevronUp size={12} stroke={2} /> : <IconChevronDown size={12} stroke={2} />
+                                ) : (
+                                  <IconSelector size={12} stroke={1.75} style={{ color: "var(--text-faint)" }} />
+                                )
+                              )}
+                            </span>
+                          </th>
+                        );
+                      })}
                     </tr>
-                  );
-                })}
-                {filteredRows.length === 0 && (
-                  <tr>
-                    <td colSpan={COLUMNS.length} style={{ padding: "var(--sp-5)", textAlign: "center", color: "var(--text-faint)" }}>
-                      ไม่มีข้อมูล — กรอกข้อมูลใน Google Sheet กลางเพื่อให้แสดงที่นี่
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {list.map((r) => {
+                      const statusColor = r.status ? STATUS_COLOR[r.status] : undefined;
+                      const rowBg = r.urgent ? "color-mix(in srgb, var(--danger) 8%, var(--surface))" : "var(--surface)";
+                      const stickyTd = (i: number): React.CSSProperties =>
+                        i < STICKY_WIDTHS.length
+                          ? { position: "sticky", left: stickyLeft(i), zIndex: 1, background: rowBg }
+                          : {};
+                      return (
+                        <tr
+                          key={r.id}
+                          style={{ borderBottom: "1px solid var(--border)", background: rowBg, cursor: "pointer" }}
+                          onClick={() => setViewingRow(r)}
+                        >
+                          <td style={{ padding: "8px 12px", ...stickyTd(0) }}>
+                            {r.urgent ? <IconFlagFilled size={14} stroke={1.75} style={{ color: "var(--danger)" }} /> : <IconFlag size={14} stroke={1.75} style={{ color: "var(--text-faint)" }} />}
+                          </td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)", ...stickyTd(1) }}>{r.no}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)", ...stickyTd(2) }}>{r.company}</td>
+                          <td style={{ padding: "8px 12px", fontWeight: 600, color: "var(--text-strong)", ...stickyTd(3) }}>{r.prNo}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.prDate}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.paNo}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.paSubmittedDate}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.paApprovedDate}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.poNo}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.poSubmittedDate}</td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.poApprovedDate}</td>
+                          <td style={{ padding: "8px 12px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>{r.project}</td>
+                          <td style={{ padding: "8px 12px", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{r.description}</td>
+                          <td style={{ padding: "8px 12px" }}>{r.vendor}</td>
+                          <td style={{ padding: "8px 12px" }}>
+                            {r.status && (
+                              <span style={{ background: statusColor?.bg, color: statusColor?.fg, borderRadius: "var(--radius-full)", padding: "2px 9px", fontSize: "10.5px", fontWeight: 700 }}>
+                                {r.status}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{r.deliveredDate}</td>
+                          <td style={{ padding: "8px 12px", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", color: "var(--text-muted)" }}>{r.remark}</td>
+                        </tr>
+                      );
+                    })}
+                    {list.length === 0 && (
+                      <tr>
+                        <td colSpan={COLUMNS.length} style={{ padding: "var(--sp-5)", textAlign: "center", color: "var(--text-faint)" }}>
+                          {emptyText}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            );
+
+            return (
+              <>
+                <h2 style={{ margin: "0 0 var(--sp-2)", fontSize: "1.05rem", color: "var(--text-strong)" }}>
+                  ที่ยังค้างอยู่ <span style={{ color: "var(--warning)" }}>({pendingList.length.toLocaleString()})</span>
+                </h2>
+                {renderTable(pendingList, "ไม่มีรายการที่ค้างอยู่")}
+
+                <div style={{ marginTop: "var(--sp-5)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowDone((v) => !v)}
+                    disabled={isSearchingDone}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, margin: "0 0 var(--sp-2)", font: "inherit", fontSize: "1.05rem", fontWeight: 700, color: "var(--text-strong)", cursor: isSearchingDone ? "default" : "pointer" }}
+                  >
+                    {doneOpen ? <IconChevronDown size={18} stroke={2} /> : <IconChevronRight size={18} stroke={2} />}
+                    เสร็จสิ้นแล้ว (Completed / Cancelled) <span style={{ color: "var(--text-faint)" }}>({doneList.length.toLocaleString()})</span>
+                    {!doneOpen && <span style={{ fontSize: "var(--fs-xs)", fontWeight: 400, color: "var(--text-faint)" }}>— กดเพื่อดู</span>}
+                  </button>
+                  {doneOpen && renderTable(doneList, "ไม่มีรายการที่เสร็จสิ้น")}
+                </div>
+              </>
+            );
+          })()}
         </>
       )}
 
