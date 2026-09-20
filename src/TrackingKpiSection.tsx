@@ -1,64 +1,10 @@
 import { useMemo } from "react";
-import { IconHourglass } from "@tabler/icons-react";
 import { computeMoney } from "./TrackingPage";
 import type { Tab, TrackingRow } from "./TrackingPage";
 import {
   computeTrackingKpis, computeDataGaps, MIN_COVERAGE, MIN_SAMPLE, STUCK_APPROVAL_DAYS,
 } from "./data/trackingKpis";
-import type { Coverage } from "./data/trackingKpis";
-
-const card: React.CSSProperties = {
-  background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "var(--sp-4)",
-};
-const mutedCard: React.CSSProperties = { ...card, background: "transparent", border: "1px dashed var(--border-strong)" };
-const line: React.CSSProperties = { fontSize: "var(--fs-xs)", color: "var(--text-faint)", marginTop: 2 };
-
-const n = (v: number) => v.toLocaleString("th-TH");
-const d = (v: number | null) => (v === null ? "—" : `${v.toLocaleString("th-TH")} วัน`);
-function pct(share: number): string {
-  if (share > 0 && share < 0.01) return "<1%";
-  return `${Math.round(share * 100)}%`;
-}
-function fmtBaht(v: number): string {
-  if (v >= 1_000_000) return `฿${(v / 1_000_000).toLocaleString("th-TH", { maximumFractionDigits: 1 })}M`;
-  return `฿${Math.round(v).toLocaleString("th-TH")}`;
-}
-
-function Card({ label, value, color, lines, title }: {
-  label: string; value: React.ReactNode; color: string; lines: React.ReactNode[]; title: string;
-}) {
-  return (
-    <div style={card} title={title}>
-      <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}>{label}</div>
-      <div style={{ fontSize: "var(--fs-h2)", fontWeight: 700, color, lineHeight: 1.2 }}>{value}</div>
-      {lines.map((l, i) => <div key={i} style={line}>{l}</div>)}
-    </div>
-  );
-}
-
-/** A KPI that needs fields the team hasn't filled in yet. Shows the number only
- *  once coverage clears the gates; until then an explicit "waiting for data". */
-function DataCard({ label, value, cov, need, title, extra }: {
-  label: string; value: React.ReactNode | null; cov: Coverage; need: string; title: string; extra?: React.ReactNode;
-}) {
-  const ready = cov.ready && value !== null;
-  return (
-    <div style={ready ? card : mutedCard} title={title}>
-      <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}>{label}</div>
-      <div style={{ fontSize: "var(--fs-h2)", fontWeight: 700, lineHeight: 1.2, color: ready ? "var(--text-strong)" : "var(--text-faint)" }}>
-        {ready ? value : "—"}
-      </div>
-      {extra && <div style={line}>{extra}</div>}
-      <div style={{ fontSize: "var(--fs-xs)", marginTop: 6, display: "flex", gap: 4, alignItems: "flex-start", color: ready ? "var(--text-faint)" : "var(--warning)" }}>
-        {!ready && <IconHourglass size={13} stroke={1.75} style={{ flexShrink: 0, marginTop: 2 }} />}
-        <span>
-          {ready ? `ข้อมูลครอบคลุม ${pct(cov.share)} (${n(cov.measured)} จาก ${n(cov.applicable)} รายการ)`
-            : `รอข้อมูล — ครอบคลุม ${pct(cov.share)} (${n(cov.measured)} จาก ${n(cov.applicable)} รายการ) · ${need}`}
-        </span>
-      </div>
-    </div>
-  );
-}
+import { card, n, d, fmtBaht, Card, DataCard } from "./components/KpiCards";
 
 export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
   rows: TrackingRow[]; tabs: Tab[]; rowsByTab: Record<string, TrackingRow[]>; scope: string;
@@ -68,7 +14,7 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
   const gapsAll = useMemo(() => computeDataGaps(rows), [rows]);
   const gapsByPerson = useMemo(
     () => (scope === "all"
-      ? tabs.map((t) => ({ name: t.name, g: computeDataGaps(rowsByTab[t.id] ?? []) }))
+      ? tabs.map((t) => ({ id: t.id, name: t.name, g: computeDataGaps(rowsByTab[t.id] ?? []) }))
           .filter((x) => x.g.openPoRows > 0)
           .sort((a, b) => b.g.noNeededDate + b.g.noPrice - (a.g.noNeededDate + a.g.noPrice))
       : []),
@@ -166,8 +112,8 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
                     </tr>
                   </thead>
                   <tbody>
-                    {gapsByPerson.map(({ name, g }) => (
-                      <tr key={name} style={{ borderTop: "1px solid var(--border)" }}>
+                    {gapsByPerson.map(({ id, name, g }) => (
+                      <tr key={id} style={{ borderTop: "1px solid var(--border)" }}>
                         <td style={{ ...td, textAlign: "left", fontWeight: 700, color: "var(--text-strong)" }}>{name}</td>
                         <td style={td}>{n(g.openPoRows)}</td>
                         <td style={{ ...td, color: g.noNeededDate ? "var(--warning)" : "var(--text-faint)" }}>{n(g.noNeededDate)}</td>

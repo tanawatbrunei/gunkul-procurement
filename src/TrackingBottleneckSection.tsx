@@ -7,11 +7,8 @@ import {
   CYCLE_STAGES, MIN_STAGE_SAMPLE, computeLeadTimeByProject, computePendingByProject, computeOverdue,
 } from "./data/trackingBottleneck";
 import type { OverdueGroup } from "./data/trackingBottleneck";
+import { card, mutedCard, n, pct } from "./components/KpiCards";
 
-const card: React.CSSProperties = {
-  background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "var(--sp-4)",
-};
-const mutedCard: React.CSSProperties = { ...card, background: "transparent", border: "1px dashed var(--border-strong)" };
 const h3: React.CSSProperties = { margin: "0 0 var(--sp-1)", fontSize: "1rem", color: "var(--text-strong)" };
 const note: React.CSSProperties = { fontSize: "var(--fs-xs)", color: "var(--text-faint)", lineHeight: 1.6 };
 
@@ -19,8 +16,6 @@ const note: React.CSSProperties = { fontSize: "var(--fs-xs)", color: "var(--text
 const STAGE_COLORS = ["#7CA6D8", "#F4D58D", "#D6B8E0", "#8FCBAE"];
 const AXIS_TICK = { fontSize: 11, fill: "var(--text-muted)" };
 
-const n = (v: number) => v.toLocaleString("th-TH");
-const pct = (share: number) => (share > 0 && share < 0.01 ? "<1%" : `${Math.round(share * 100)}%`);
 const short = (s: string, max = 34) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
 function GroupBars({ title, data, color }: { title: string; data: OverdueGroup[]; color: string }) {

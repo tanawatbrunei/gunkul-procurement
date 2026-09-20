@@ -27,14 +27,18 @@ function median(a: number[]): number | null {
 
 const clean = (s: string | undefined) => s?.replace(/\s+/g, " ").trim() ?? "";
 
-/** Group key for free-text names ("Project A " and "project a" are one project). */
+/** Placeholder values people type into a name cell when they mean "blank". */
+const JUNK_NAMES = new Set(["0", "-", "--", "n/a", "na", "null", "none", "tbd"]);
+
+/** Group key for free-text names ("Project A " and "project a" are one project;
+ *  placeholders like "0" or "-" count as no name). */
 export function nameKey(s: string | undefined): string | null {
-  const t = clean(s);
-  return t ? t.toLowerCase() : null;
+  const t = clean(s).toLowerCase();
+  return t && !JUNK_NAMES.has(t) ? t : null;
 }
 
 /** Groups rows by a name field, remembering the most common spelling for display. */
-function groupBy(rows: TrackingRow[], field: "project" | "vendor") {
+export function groupBy(rows: TrackingRow[], field: "project" | "vendor") {
   const groups = new Map<string, { rows: TrackingRow[]; spellings: Map<string, number> }>();
   let unnamed = 0;
   for (const r of rows) {
@@ -173,7 +177,7 @@ export function computeOverdue(allRows: TrackingRow[], today: Date = new Date(),
       const raw = clean(r[field]);
       const key = nameKey(raw) ?? "__none__";
       let g = m.get(key);
-      if (!g) { g = { name: raw || NO_LABEL, count: 0, maxDays: 0 }; m.set(key, g); }
+      if (!g) { g = { name: nameKey(raw) ? raw : NO_LABEL, count: 0, maxDays: 0 }; m.set(key, g); }
       g.count++;
       g.maxDays = Math.max(g.maxDays, r.daysOverdue);
     }

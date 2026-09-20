@@ -12,6 +12,7 @@ import type { TrackingRow, Tab } from "./TrackingPage";
 import { parseDate, daysBetween, isPlaceholderRow } from "./data/trackingStats";
 import TrackingKpiSection from "./TrackingKpiSection";
 import TrackingBottleneckSection from "./TrackingBottleneckSection";
+import TrackingSpendSection from "./TrackingSpendSection";
 import { CYCLE_STAGES } from "./data/trackingBottleneck";
 
 /* ============================================================
@@ -307,6 +308,8 @@ export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
       <TrackingKpiSection rows={trackedRows} tabs={tabs} rowsByTab={rowsByTab} scope={scope} />
 
       <TrackingBottleneckSection rows={trackedRows} />
+
+      <TrackingSpendSection rows={trackedRows} />
 
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--sp-3)" }}>
