@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { subscribeRows, getRowsSnapshot } from "./data/trackingStore";
+import { useTrackingRowsByTab } from "./data/useTrackingRows";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   LineChart, Line, Legend,
@@ -133,20 +133,13 @@ function CycleTimeDrilldownModal({
 }
 
 export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
-  const [rowsByTab, setRowsByTab] = useState<Record<string, TrackingRow[]>>({});
+  const rawRowsByTab = useTrackingRowsByTab(tabs);
+  const rowsByTab = useMemo(() => {
+    const out: Record<string, TrackingRow[]> = {};
+    for (const id of Object.keys(rawRowsByTab)) out[id] = rawRowsByTab[id].map((r) => ({ ...r, status: normalizeStatus(r.status) }));
+    return out;
+  }, [rawRowsByTab]);
   const [scope, setScope] = useState<string>("all");
-
-  useEffect(() => {
-    const unsubs = tabs.map((tab) =>
-      subscribeRows(tab.id, () => {
-        setRowsByTab((prev) => ({
-          ...prev,
-          [tab.id]: getRowsSnapshot(tab.id).map((r) => ({ ...r, status: normalizeStatus(r.status) })),
-        }));
-      })
-    );
-    return () => unsubs.forEach((u) => u());
-  }, [tabs]);
 
   const rows = useMemo(() => {
     if (scope === "all") return tabs.flatMap((t) => rowsByTab[t.id] ?? []);

@@ -106,6 +106,7 @@ google-apps-script/
 ## 8. Firestore data shapes (quick reference)
 
 - `trackingTabs/{tabId}` `{ name, order }`, subcollection `rows/{rowId}` (PR/PA/PO fields).
+- `trackingSlim/{tabId}` `{ json, updatedAt }` — compact copy of a tab's rows (written by the Apps Script; the Summary/Dashboard/search read this instead of every row → far fewer Firestore reads; web falls back to full rows if absent).
 - `meta/companyUpdates` `{ updates: { [companyCode]: "YYYY-MM-DD" } }` (stamped on import).
 - `allowedUsers/{email}` `{ email, role, addedBy, addedAt }` — the access allowlist (closed system, see docs/SECURITY.md).
 - Item/vendor aggregates + project docs written by the import + project flows.
