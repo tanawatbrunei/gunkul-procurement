@@ -8,7 +8,7 @@ import { importPurchaseOrders, parseProducts, type ImportResult } from "../data/
  * - Start date optionally drops POs older than the chosen cut-off.
  */
 export default function ImportModal({ onClose }: { onClose: () => void }) {
-  const [poFile, setPoFile] = useState<File | null>(null);
+  const [poFiles, setPoFiles] = useState<File[]>([]);
   const [productFile, setProductFile] = useState<File | null>(null);
   const [startDate, setStartDate] = useState("");
   const [busy, setBusy] = useState(false);
@@ -17,7 +17,7 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState("");
 
   const run = async () => {
-    if (!poFile) { setError("กรุณาเลือกไฟล์ All_Purchase orders ก่อน"); return; }
+    if (poFiles.length === 0) { setError("กรุณาเลือกไฟล์ All_Purchase orders ก่อน"); return; }
     setBusy(true); setError(""); setResult(null);
     try {
       let productMap;
@@ -25,10 +25,10 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
         setStage("กำลังอ่านไฟล์สินค้า (All_Products)...");
         productMap = parseProducts(await productFile.arrayBuffer());
       }
-      setStage("กำลังอ่านและรวมข้อมูล PO...");
-      const poBuf = await poFile.arrayBuffer();
-      setStage("กำลังคำนวณยอด Vendor และราคา Item ใหม่...");
-      const res = await importPurchaseOrders(poBuf, startDate, productMap, poFile.name);
+      setStage(`กำลังอ่านไฟล์ PO (${poFiles.length} ไฟล์)...`);
+      const files = await Promise.all(poFiles.map(async (f) => ({ buf: await f.arrayBuffer(), name: f.name })));
+      setStage("กำลังรวมข้อมูล PO และคำนวณยอด Vendor / ราคา Item ใหม่ (ทำครั้งเดียวสำหรับทุกไฟล์)...");
+      const res = await importPurchaseOrders(files, startDate, productMap);
       setResult(res);
       setStage("");
     } catch (e) {
@@ -71,6 +71,29 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
     </div>
   );
 
+  const poFilesField = (
+    <div style={{ marginBottom: "14px", padding: "14px", borderRadius: "12px", border: "1.5px solid #e2e8f0", background: "#fbfcff" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
+        <span style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#1a3c6e", color: "white", fontSize: "11px", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>1</span>
+        <span style={{ fontSize: "14px", fontWeight: 700, color: "#1a3c6e" }}>ไฟล์ใบสั่งซื้อ</span>
+        <Badge required={true} />
+      </div>
+      <p style={{ margin: "0 0 10px 28px", fontSize: "12px", color: "#94a3b8" }}>
+        <code style={{ background: "#eef2ff", color: "#475569", padding: "1px 6px", borderRadius: "5px", fontSize: "11px" }}>All_Purchase orders</code> · เลือกได้หลายไฟล์พร้อมกัน (เช่นทุกบริษัทในสัปดาห์เดียว) เพิ่มเฉพาะ PO ใหม่ ของเดิมไม่ถูกแก้
+      </p>
+      <div style={{ marginLeft: "28px" }}>
+        <input type="file" accept=".xlsx,.xls,.csv" multiple disabled={busy}
+          onChange={(e) => setPoFiles(Array.from(e.target.files ?? []))}
+          style={{ fontSize: "13px" }} />
+        {poFiles.length > 0 && (
+          <ul style={{ margin: "8px 0 0", padding: 0, listStyle: "none", fontSize: "12px", color: "#0f766e", fontWeight: 700 }}>
+            {poFiles.map((f) => <li key={f.name + f.size}>✓ {f.name}</li>)}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div onClick={busy ? undefined : onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
@@ -88,7 +111,7 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
                 💡 อัปโหลดไฟล์ Export จากระบบจัดซื้อ ระบบจะ<strong style={{ color: "#1a3c6e" }}>สร้างและอัปเดตรายการสินค้า ราคา และ Vendor ให้อัตโนมัติ</strong> ไม่ต้องเพิ่มสินค้าทีละชิ้นเอง
               </p>
 
-              {fileField(1, "ไฟล์ใบสั่งซื้อ", "All_Purchase orders", "เพิ่มเฉพาะ PO ใหม่ ของเดิมไม่ถูกแก้", true, poFile, setPoFile)}
+              {poFilesField}
               {fileField(2, "ไฟล์รายชื่อสินค้า", "All_Products", "ช่วยเสริมชื่อสินค้าให้อ่านง่ายขึ้นเท่านั้น", false, productFile, setProductFile)}
 
               <div style={{ marginBottom: "18px", padding: "14px", borderRadius: "12px", border: "1.5px solid #e2e8f0", background: "#fbfcff" }}>
@@ -106,8 +129,8 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
               {error && <p style={{ color: "#dc2626", fontSize: "13px", fontWeight: 700, margin: "0 0 12px" }}>⚠️ {error}</p>}
               {busy && <p style={{ color: "#1a3c6e", fontSize: "13px", fontWeight: 700, margin: "0 0 12px" }}>⏳ {stage}</p>}
 
-              <button onClick={run} disabled={busy || !poFile}
-                style={{ width: "100%", padding: "13px", background: busy || !poFile ? "#cbd5e1" : "linear-gradient(135deg, #1a3c6e, #2d5a9e)", border: "none", borderRadius: "12px", cursor: busy || !poFile ? "not-allowed" : "pointer", fontWeight: 700, color: "white", fontSize: "15px" }}>
+              <button onClick={run} disabled={busy || poFiles.length === 0}
+                style={{ width: "100%", padding: "13px", background: busy || poFiles.length === 0 ? "#cbd5e1" : "linear-gradient(135deg, #1a3c6e, #2d5a9e)", border: "none", borderRadius: "12px", cursor: busy || poFiles.length === 0 ? "not-allowed" : "pointer", fontWeight: 700, color: "white", fontSize: "15px" }}>
                 {busy ? "กำลังนำเข้า..." : "เริ่มนำเข้า"}
               </button>
             </>
@@ -120,6 +143,7 @@ export default function ImportModal({ onClose }: { onClose: () => void }) {
                 <h3 style={{ margin: "8px 0 0", color: "#0f766e", fontSize: "18px" }}>นำเข้าสำเร็จ</h3>
               </div>
               {[
+                ["ไฟล์ที่นำเข้า", result.files],
                 ["PO ใหม่ที่เพิ่ม", result.newPOs],
                 ["บรรทัดใหม่ที่เพิ่ม", result.newLines],
                 ["PO เดิม (ข้ามไป)", result.skippedExisting],

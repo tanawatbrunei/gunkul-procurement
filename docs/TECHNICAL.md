@@ -362,9 +362,13 @@ function normalizeHeader(h) { return clean(h).toLowerCase(); }
 | `loadImportedPOs()` | อ่าน `meta/poImport.poNumbers` → Set (ไว้กัน import ซ้ำ) |
 | `loadAllPOLines()` | อ่าน `poLines` ทั้งหมด |
 
-### ★ `importPurchaseOrders(poBuf, startDate, productMap?, fileName?)` — เส้นทางเขียนหลัก
+### ★ `importPurchaseOrders(files[], startDate, productMap?)` — เส้นทางเขียนหลัก
+รับ **หลายไฟล์ในครั้งเดียว** (`files: {buf, name}[]`) เพราะขั้น 5 ต้องอ่าน `poLines` ทั้งหมด (หลักหมื่นบรรทัด)
+ถ้านำเข้าทีละไฟล์จะอ่านซ้ำทุกไฟล์ กินโควตา Firestore ฟรี (50K อ่าน/วัน) — รวมไฟล์เดียวจบ อ่านครั้งเดียว
+(เลข PO ที่ซ้ำข้ามไฟล์เก็บครั้งเดียวจากไฟล์แรก ดู `mergeParsed`)
+
 ลำดับการทำงาน:
-1. parse ไฟล์ + โหลดเลข PO ที่มีแล้ว
+1. parse ทุกไฟล์ + รวม (`mergeParsed`) + โหลดเลข PO ที่มีแล้ว
 2. **merge ตามเลข PO** — เก็บเฉพาะบรรทัดที่ PO ยังไม่เคย import → สร้าง id = `${poNumber}__${seq}`
 3. `chunkedSet` เขียน `poLines` ใหม่
 4. อัปเดต `meta/poImport` (รวมเลข PO เดิม + ใหม่)
