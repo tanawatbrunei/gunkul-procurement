@@ -9,6 +9,7 @@ import {
   STATUS_OPTIONS, STATUS_COLOR, normalizeStatus,
 } from "./TrackingPage";
 import type { TrackingRow, Tab } from "./TrackingPage";
+import { parseDate, daysBetween, isPlaceholderRow } from "./data/trackingStats";
 
 /* ============================================================
    Cycle-time analysis — average calendar days spent in each stage
@@ -24,15 +25,6 @@ const CYCLE_STAGES: { label: string; from: keyof TrackingRow; to: keyof Tracking
   { label: "อนุมัติ PA → เปิด PO", from: "paApprovedDate", to: "poSubmittedDate" },
   { label: "เปิด PO → อนุมัติ PO", from: "poSubmittedDate", to: "poApprovedDate" },
 ];
-
-function parseDate(s: string | undefined): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
-}
 
 /* ============================================================
    PR-received-per-month trend, broken down by person — shows whether
@@ -67,15 +59,6 @@ function countRowsByMonth(rows: TrackingRow[], dateField: keyof TrackingRow = "p
 // Fixed categorical order (never reassigned when the person list is filtered),
 // reused from the palette already used elsewhere in the app (Project page).
 const PERSON_PALETTE = ["#7CA6D8", "#8FCBAE", "#F2B6A0", "#D6B8E0", "#F4D58D", "#9AD0D6", "#C9B7A0", "#A8B8D8"];
-
-// Some team members pre-add rows in the sheet to reserve a row number before
-// any real request exists yet — no PR/PA/PO No. filled in at all, just a
-// Company + "Draft" status placeholder. Counting those as tracked work would
-// inflate the KPI total and per-person workload with items that haven't
-// actually started.
-function isPlaceholderRow(r: TrackingRow): boolean {
-  return !r.prNo?.trim() && !r.paNo?.trim() && !r.poNo?.trim();
-}
 
 const cardStyle: React.CSSProperties = {
   background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)",
