@@ -163,7 +163,7 @@ flowchart LR
 | `knowledgeDocs` | รายการเอกสารความรู้ | Knowledge Base |
 | `esgDocs`, `esgTemplates` | เอกสาร/เทมเพลต ESG | ESG |
 
-**สิทธิ์การเข้าถึง (Security Rules):** ระบบเป็น **ระบบปิด** — เข้าได้เฉพาะอีเมล @gunkul.com ที่ยืนยันอีเมลแล้ว
+**สิทธิ์การเข้าถึง (Security Rules):** ระบบเป็น **ระบบปิด** — เข้าได้เฉพาะอีเมล @gunkul.com / @gunkul.co.th ที่ยืนยันอีเมลแล้ว
 **และ** อยู่ในรายชื่อที่ admin เพิ่มไว้ (เมนู "จัดการผู้ใช้" เห็นเฉพาะ admin) ลบ Vendor ทำได้เฉพาะ admin
 กฎเก็บไว้ในไฟล์ `firestore.rules` แต่ **ต้องกด Publish ใน Firebase Console เอง** เวลาแก้กฎ
 (โค้ดในไฟล์อย่างเดียวไม่ทำให้กฎมีผล) — ดูลำดับที่ปลอดภัยใน `docs/SECURITY.md`
