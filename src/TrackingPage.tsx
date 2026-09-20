@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 import SyncStatus from "./components/SyncStatus";
+import TrackingSummary, { StatCards, StatDefinitions } from "./TrackingSummary";
+import { computeTrackingStats } from "./data/trackingStats";
 import { subscribeTabs, getTabsSnapshot, getTabsError, subscribeRows, getRowsSnapshot } from "./data/trackingStore";
 import * as XLSX from "xlsx";
 import {
@@ -11,6 +13,7 @@ import {
   IconFlagFilled,
   IconSearch,
   IconClipboardList,
+  IconLayoutDashboard,
   IconChevronUp,
   IconChevronDown,
   IconSelector,
@@ -282,6 +285,9 @@ export default function TrackingPage() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [rows, setRows] = useState<TrackingRow[]>([]);
+  // Landing view is the team summary; a person's tab opens their own table.
+  const [showSummary, setShowSummary] = useState(true);
+  const [rowsByTab, setRowsByTab] = useState<Record<string, TrackingRow[]>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewingRow, setViewingRow] = useState<TrackingRow | null>(null);
   const [search, setSearch] = useState("");
@@ -307,6 +313,18 @@ export default function TrackingPage() {
   }, []);
 
   useEffect(() => {
+    const unsubs = tabs.map((t) =>
+      subscribeRows(t.id, () => {
+        setRowsByTab((prev) => ({
+          ...prev,
+          [t.id]: getRowsSnapshot(t.id).map((r) => ({ ...r, status: normalizeStatus(r.status) })),
+        }));
+      }),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [tabs]);
+
+  useEffect(() => {
     if (!activeTab) { setRows([]); return; }
     return subscribeRows(activeTab, () => {
       setRows(getRowsSnapshot(activeTab).map((r) => ({ ...r, status: normalizeStatus(r.status) })));
@@ -323,7 +341,7 @@ export default function TrackingPage() {
   const otherTabCache = useRef<Map<string, Searchable[]>>(new Map());
   useEffect(() => {
     const q = search.trim().toLowerCase();
-    if (!q || !activeTab || tabs.length <= 1) return;
+    if (showSummary || !q || !activeTab || tabs.length <= 1) return;
     if (rows.some((r) => rowMatchesSearch(r, q))) { jumpedForRef.current = ""; return; }
     if (jumpedForRef.current === q) return;
 
@@ -346,7 +364,7 @@ export default function TrackingPage() {
     }, 450);
 
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [search, activeTab, rows, tabs]);
+  }, [search, activeTab, rows, tabs, showSummary]);
 
   const exportToExcel = () => {
     if (!activeTab) return;
@@ -365,6 +383,8 @@ export default function TrackingPage() {
     XLSX.utils.book_append_sheet(wbOut, ws, tabName.slice(0, 31));
     XLSX.writeFile(wbOut, `${tabName}-tracking.xlsx`);
   };
+
+  const personStats = useMemo(() => computeTrackingStats(rows), [rows]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -415,32 +435,47 @@ export default function TrackingPage() {
 
       {/* Tabs bar */}
       <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)", flexWrap: "wrap", borderBottom: "1px solid var(--border)", marginBottom: "var(--sp-4)", paddingBottom: "var(--sp-2)" }}>
-        {tabs.map((tab) => {
-          const active = tab.id === activeTab;
+        {(() => {
+          const pill = (active: boolean): React.CSSProperties => ({
+            background: active ? "var(--accent-bg)" : "transparent",
+            border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+            borderRadius: "var(--radius-full)", padding: "6px 14px",
+            cursor: "pointer", fontSize: "var(--fs-sm)",
+            color: active ? "var(--text-strong)" : "var(--text-muted)",
+            fontWeight: active ? 700 : 500,
+          });
           return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: active ? "var(--accent-bg)" : "transparent",
-                border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                borderRadius: "var(--radius-full)", padding: "6px 14px",
-                cursor: "pointer", fontSize: "var(--fs-sm)",
-                color: active ? "var(--text-strong)" : "var(--text-muted)",
-                fontWeight: active ? 700 : 500,
-              }}
-            >
-              {tab.name}
-            </button>
+            <>
+              <button type="button" onClick={() => setShowSummary(true)}
+                style={{ ...pill(showSummary), display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <IconLayoutDashboard size={15} stroke={1.75} /> ภาพรวมทีม
+              </button>
+              <span aria-hidden style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+              {tabs.map((tab) => (
+                <button key={tab.id} type="button"
+                  onClick={() => { setActiveTab(tab.id); setShowSummary(false); }}
+                  style={pill(!showSummary && tab.id === activeTab)}>
+                  {tab.name}
+                </button>
+              ))}
+            </>
           );
-        })}
+        })()}
       </div>
 
-      {!activeTab ? (
+      {showSummary && tabs.length > 0 ? (
+        <TrackingSummary tabs={tabs} rowsByTab={rowsByTab}
+          onOpenTab={(id) => { setActiveTab(id); setShowSummary(false); }} />
+      ) : !activeTab ? (
         <div style={{ color: "var(--text-muted)", fontSize: "var(--fs-sm)" }}>ยังไม่มีแท็ปข้อมูล — เริ่มกรอกใน Google Sheet กลาง แท็ปจะปรากฏที่นี่อัตโนมัติ</div>
       ) : (
         <>
+          {/* Performance of the selected person */}
+          <div style={{ marginBottom: "var(--sp-4)" }}>
+            <StatCards stats={personStats} />
+            <StatDefinitions badDates={personStats.badDates} />
+          </div>
+
           {/* Toolbar */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-3)", alignItems: "center", marginBottom: "var(--sp-4)" }}>
             <div style={{ position: "relative" }}>
