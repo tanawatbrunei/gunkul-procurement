@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
-  collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, writeBatch, setDoc, arrayUnion,
+  collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, setDoc, arrayUnion,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import * as XLSX from "xlsx";
@@ -490,24 +490,11 @@ export default function ProjectPage() {
   };
 
   useEffect(() => {
-    let seeded = false;
     const colRef = collection(db, "kickoffProjects");
     const unsub = onSnapshot(
       colRef,
-      async (snap) => {
+      (snap) => {
         setLoadError(null);
-        if (snap.empty && !seeded) {
-          seeded = true;
-          try {
-            const { SEED_PROJECTS } = await import("./data/projectSeed");
-            const batch = writeBatch(db);
-            SEED_PROJECTS.forEach((p) => batch.set(doc(colRef), p));
-            await batch.commit();
-          } catch (err) {
-            setLoadError(err instanceof Error ? err.message : String(err));
-          }
-          return;
-        }
         setProjects(snap.docs.map((d) => ({ id: d.id, ...(d.data() as ProjectSeed) })));
       },
       (err) => setLoadError(err.message)

@@ -1,10 +1,18 @@
 /**
- * Hardcoded admin allowlist — this app has no role system, so "admin" is
- * just an email list checked client-side (UI gating) and mirrored in
- * firestore.rules (actual enforcement). Add/remove emails here as needed.
+ * Bootstrap admins. These emails are always allowed in and always admin, even
+ * if the `allowedUsers` list is empty or damaged — so the team can never lock
+ * itself out. Everyone else is managed on the "จัดการผู้ใช้" page (admin only),
+ * which writes `allowedUsers/{email}` docs.
+ *
+ * Keep in sync with `isBootstrapAdmin()` in firestore.rules (the real enforcement).
  */
-export const ADMIN_EMAILS = ["tanawat.han@gunkul.com"];
+export const BOOTSTRAP_ADMIN_EMAILS = ["tanawat.han@gunkul.com"];
 
-export function isAdmin(email: string | null | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email);
+export function isBootstrapAdmin(email: string | null | undefined): boolean {
+  return !!email && BOOTSTRAP_ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+/** Firestore doc id for an allowlist entry: the lower-cased email. */
+export function allowlistId(email: string): string {
+  return email.trim().toLowerCase();
 }

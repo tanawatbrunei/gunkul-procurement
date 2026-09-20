@@ -13,6 +13,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconLogout,
+  IconShieldLock,
 } from "@tabler/icons-react";
 
 export type Page =
@@ -24,7 +25,8 @@ export type Page =
   | "knowledge"
   | "esg"
   | "project"
-  | "itemmaster";
+  | "itemmaster"
+  | "users";
 
 const NAV_ITEMS: { page: Page; label: string; icon: typeof IconHome2 }[] = [
   { page: "home", label: "Home", icon: IconHome2 },
@@ -37,6 +39,9 @@ const NAV_ITEMS: { page: Page; label: string; icon: typeof IconHome2 }[] = [
   { page: "esg", label: "ESG & Sustainability", icon: IconLeaf },
   { page: "team", label: "Organization Chart", icon: IconSitemap },
 ];
+const ADMIN_NAV_ITEMS: typeof NAV_ITEMS = [
+  { page: "users", label: "จัดการผู้ใช้", icon: IconShieldLock },
+];
 
 const STORAGE_KEY = "gunkul-sidebar-collapsed";
 
@@ -44,6 +49,7 @@ interface SidebarProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
   userLabel: string;
+  isAdmin?: boolean;
   onLogout: () => void;
 }
 
@@ -51,6 +57,7 @@ export default function Sidebar({
   currentPage,
   onNavigate,
   userLabel,
+  isAdmin = false,
   onLogout,
 }: SidebarProps) {
   const { theme } = useTheme();
@@ -139,7 +146,7 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav style={{ flex: 1, overflowY: "auto", padding: "var(--sp-3) 0" }}>
-        {NAV_ITEMS.map(({ page, label, icon: Icon }) => {
+        {(isAdmin ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS).map(({ page, label, icon: Icon }) => {
           const active = currentPage === page;
           return (
             <button

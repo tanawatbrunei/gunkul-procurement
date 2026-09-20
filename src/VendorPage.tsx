@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   collection, onSnapshot, updateDoc, deleteDoc, doc,
 } from "firebase/firestore";
-import { auth, db } from "./firebase";
+import { db } from "./firebase";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -15,7 +15,7 @@ import {
   IconLayoutGrid, IconList, IconArrowRight, IconArrowLeft, IconCheck,
 } from "@tabler/icons-react";
 import { fetchVendorPOLines, countsAsSpend, type POLine } from "./data/procurement";
-import { isAdmin } from "./config/admins";
+import { useAccess } from "./access";
 import ImportModal from "./components/ImportModal";
 import CompanyUpdates from "./components/CompanyUpdates";
 
@@ -165,6 +165,7 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
   onSaveCategories: (cats: string[]) => void; onSaveNote: (note: string) => void;
   onSaveContact: (contact: { contactPerson: string; contactPhone: string; contactEmail: string }) => void;
 }) {
+  const { isAdmin } = useAccess();
   const [editingCats, setEditingCats] = useState(false);
   const [cats, setCats] = useState<string[]>(vendor.categories || []);
   const [note, setNote] = useState(vendor.note || "");
@@ -433,7 +434,7 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
               style={{ width: "100%", padding: "11px 14px", borderRadius: "10px", border: "1.5px solid var(--border)", boxSizing: "border-box", resize: "vertical", fontSize: "14px", color: "var(--primary)", background: "var(--surface)" }} />
           </div>
 
-          {isAdmin(auth.currentUser?.email) ? (
+          {isAdmin ? (
             <button onClick={onDelete} style={{ width: "100%", padding: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "color-mix(in srgb, var(--danger) 10%, var(--surface))", border: "1px solid color-mix(in srgb, var(--danger) 35%, var(--surface))", borderRadius: "12px", cursor: "pointer", fontWeight: "700", color: "var(--danger)", fontSize: "14px" }}><IconTrash size={16} stroke={1.75} /> ลบ Vendor นี้</button>
           ) : (
             <p style={{ margin: 0, fontSize: "12px", color: "var(--text-faint)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}><IconLock size={13} stroke={1.75} /> การลบ Vendor ทำได้เฉพาะ admin — ติดต่อผู้ดูแลระบบถ้าต้องการลบ</p>

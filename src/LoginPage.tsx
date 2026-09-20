@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
 import { auth } from "./firebase";
 import ThemeToggle from "./ThemeToggle";
 
@@ -93,7 +93,9 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     setLoading(true);
     try {
       const { createUserWithEmailAndPassword } = await import("firebase/auth");
-      await createUserWithEmailAndPassword(auth, email, password);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      // Firestore rules only admit verified emails, so start verification right away.
+      try { await sendEmailVerification(cred.user); } catch { /* the verify screen offers a resend */ }
       setSignUpSuccess(true);
       setShowSignUp(false);
       setEmail(""); setPassword(""); setConfirmPassword("");
@@ -103,8 +105,10 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     setLoading(false);
   };
 
-  const handleForgot = () => {
+  const handleForgot = async () => {
     if (!forgotEmail) return;
+    // Show the same confirmation whether or not the address exists (don't reveal who has an account).
+    try { await sendPasswordResetEmail(auth, forgotEmail.trim()); } catch { /* ignore */ }
     setForgotSent(true);
   };
 

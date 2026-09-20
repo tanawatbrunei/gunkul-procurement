@@ -1,43 +1,71 @@
 rules_version = '2';
 
-// Firestore security rules for the Gunkul Procurement app.
-// All app data requires an authenticated user (email/password login).
+// Firestore security rules for the Gunkul Procurement app — CLOSED SYSTEM.
+//
+// Who gets in: a signed-in user whose email is VERIFIED and is on the allowlist
+// (`allowedUsers/{email}`, managed by admins on the "จัดการผู้ใช้" page).
+// Bootstrap admins (hardcoded below) are always allowed so the team can never
+// lock itself out. Everyone else — including anyone who merely signs up with a
+// @gunkul.com address — is denied on every collection.
 //
 // HOW TO APPLY:
 //   Firebase Console → Firestore Database → Rules tab →
 //   paste this whole file → Publish.
+//   Rules do NOT deploy with the code. See docs/SECURITY.md for the safe order.
 //
-// Keep this file in sync with the collections used in src/ so the rules
-// are version-controlled alongside the code.
+// Keep this file in sync with src/config/admins.ts and the collections used in src/.
 service cloud.firestore {
-  // Hardcoded admin allowlist — keep in sync with src/config/admins.ts.
-  // No role system exists yet; this is the only place a destructive action
-  // (deleting a whole vendor) is actually enforced, not just hidden in the UI.
-  function isAdmin() {
-    return request.auth != null &&
-      request.auth.token.email in ["tanawat.han@gunkul.com"];
-  }
-
   match /databases/{database}/documents {
+
+    // ---- identity helpers ----
+    function verified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    // Keep in sync with BOOTSTRAP_ADMIN_EMAILS in src/config/admins.ts.
+    function isBootstrapAdmin() {
+      return verified() && request.auth.token.email in ["tanawat.han@gunkul.com"];
+    }
+    function allowlistDoc() {
+      return /databases/$(database)/documents/allowedUsers/$(request.auth.token.email);
+    }
+    // Any admitted member (read + write on app data).
+    function isMember() {
+      return isBootstrapAdmin() || (verified() && exists(allowlistDoc()));
+    }
+    // Admin = bootstrap admin, or an allowlist entry with role "admin".
+    function isAdmin() {
+      return isBootstrapAdmin() || (verified() && exists(allowlistDoc()) && get(allowlistDoc()).data.role == "admin");
+    }
+
+    // ---- who is allowed ----
+    match /allowedUsers/{email} {
+      // Everyone may read ONLY their own entry (so the app can tell "not on the list");
+      // only admins can list, add, change or remove entries.
+      allow get: if request.auth != null && request.auth.token.email == email || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---- app data ----
     match /vendors/{docId} {
-      allow read, create, update: if request.auth != null;
+      allow read, create, update: if isMember();
       allow delete: if isAdmin();
     }
-    match /items/{docId}           { allow read, write: if request.auth != null; }
-    match /poLines/{docId}         { allow read, write: if request.auth != null; }
-    match /meta/{docId}            { allow read, write: if request.auth != null; }
-    match /importHistory/{docId}   { allow read, write: if request.auth != null; }
-    match /settings/{docId}        { allow read, write: if request.auth != null; }
-    match /orgChart/{docId}        { allow read, write: if request.auth != null; }
-    match /staffDirectory/{docId}  { allow read, write: if request.auth != null; }
+    match /items/{docId}           { allow read, write: if isMember(); }
+    match /poLines/{docId}         { allow read, write: if isMember(); }
+    match /meta/{docId}            { allow read, write: if isMember(); }
+    match /importHistory/{docId}   { allow read, write: if isMember(); }
+    match /settings/{docId}        { allow read, write: if isMember(); }
+    match /orgChart/{docId}        { allow read, write: if isMember(); }
+    match /staffDirectory/{docId}  { allow read, write: if isMember(); }
     match /trackingTabs/{tabId} {
-      allow read, write: if request.auth != null;
-      match /rows/{rowId}          { allow read, write: if request.auth != null; }
+      allow read, write: if isMember();
+      match /rows/{rowId}          { allow read, write: if isMember(); }
     }
-    match /knowledgeDocs/{docId}   { allow read, write: if request.auth != null; }
-    match /esgDocs/{docId}         { allow read, write: if request.auth != null; }
-    match /esgTemplates/{docId}    { allow read, write: if request.auth != null; }
-    match /homeProjects/{docId}    { allow read, write: if request.auth != null; }
-    match /kickoffProjects/{docId} { allow read, write: if request.auth != null; }
+    match /knowledgeDocs/{docId}   { allow read, write: if isMember(); }
+    match /esgDocs/{docId}         { allow read, write: if isMember(); }
+    match /esgTemplates/{docId}    { allow read, write: if isMember(); }
+    match /homeProjects/{docId}    { allow read, write: if isMember(); }
+    match /kickoffProjects/{docId} { allow read, write: if isMember(); }
   }
 }
