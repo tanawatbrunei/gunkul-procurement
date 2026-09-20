@@ -4,7 +4,7 @@ import {
 } from "firebase/firestore";
 import { IconShieldLock, IconTrash, IconUserPlus, IconUsersGroup } from "@tabler/icons-react";
 import { auth, db } from "./firebase";
-import { BOOTSTRAP_ADMIN_EMAILS, isBootstrapAdmin, allowlistId } from "./config/admins";
+import { BOOTSTRAP_ADMIN_EMAILS, COMPANY_EMAIL_RE, isBootstrapAdmin, allowlistId } from "./config/admins";
 
 interface AllowedUser {
   email: string;
@@ -13,7 +13,6 @@ interface AllowedUser {
   addedAt?: { toDate: () => Date };
 }
 
-const EMAIL_RE = /^[^\s@]+@gunkul\.com$/;
 const card: React.CSSProperties = {
   background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "var(--sp-4)",
 };
@@ -57,9 +56,9 @@ export default function UsersPage() {
   const parsed = useMemo(() => {
     const all = [...new Set(text.split(/[\s,;]+/).map((s) => allowlistId(s)).filter(Boolean))];
     return {
-      valid: all.filter((e) => EMAIL_RE.test(e) && !existing.has(e)),
+      valid: all.filter((e) => COMPANY_EMAIL_RE.test(e) && !existing.has(e)),
       already: all.filter((e) => existing.has(e)),
-      invalid: all.filter((e) => !EMAIL_RE.test(e)),
+      invalid: all.filter((e) => !COMPANY_EMAIL_RE.test(e)),
     };
   }, [text, existing]);
 
@@ -84,7 +83,7 @@ export default function UsersPage() {
     setBusy(true); setMsg(null);
     try {
       const snap = await getDocs(collection(db, "staffDirectory"));
-      const emails = snap.docs.map((d) => allowlistId(String(d.data().email ?? ""))).filter((e) => EMAIL_RE.test(e) && !existing.has(e));
+      const emails = snap.docs.map((d) => allowlistId(String(d.data().email ?? ""))).filter((e) => COMPANY_EMAIL_RE.test(e) && !existing.has(e));
       setText((t) => [...new Set([...t.split(/[\s,;]+/).filter(Boolean), ...emails])].join("\n"));
       setMsg({ kind: "ok", text: `ดึงจากรายชื่อพนักงาน ${emails.length} อีเมล — ตรวจดูให้ครบถ้วนก่อนกด "เพิ่มเข้ารายชื่อ"` });
     } catch (e) {
@@ -115,7 +114,7 @@ export default function UsersPage() {
       </div>
       <h1 style={{ margin: "0 0 var(--sp-2)", color: "var(--text-strong)" }}>จัดการผู้ใช้</h1>
       <p style={{ margin: "0 0 var(--sp-5)", fontSize: "var(--fs-sm)", color: "var(--text-muted)", lineHeight: 1.6 }}>
-        เฉพาะอีเมล @gunkul.com ที่อยู่ในรายชื่อนี้เท่านั้นที่เข้าข้อมูลได้ (บังคับที่ฐานข้อมูล ไม่ใช่แค่หน้าเว็บ)
+        เฉพาะอีเมล @gunkul.com / @gunkul.co.th ที่อยู่ในรายชื่อนี้เท่านั้นที่เข้าข้อมูลได้ (บังคับที่ฐานข้อมูล ไม่ใช่แค่หน้าเว็บ)
         คนที่เพิ่มแล้วต้องยืนยันอีเมลผ่านลิงก์ที่ระบบส่งให้ในครั้งแรกที่เข้า การลบชื่อออกจะตัดสิทธิ์ตั้งแต่คำขอถัดไป
       </p>
 
@@ -128,7 +127,7 @@ export default function UsersPage() {
           style={{ ...field, width: "100%", boxSizing: "border-box", resize: "vertical" }} />
         {(parsed.invalid.length > 0 || parsed.already.length > 0) && (
           <p style={{ margin: "6px 0 0", fontSize: "var(--fs-xs)", color: "var(--warning)" }}>
-            {parsed.invalid.length > 0 && <>ไม่ใช่อีเมล @gunkul.com (จะไม่ถูกเพิ่ม): {parsed.invalid.join(", ")}. </>}
+            {parsed.invalid.length > 0 && <>ไม่ใช่อีเมล @gunkul.com / @gunkul.co.th (จะไม่ถูกเพิ่ม): {parsed.invalid.join(", ")}. </>}
             {parsed.already.length > 0 && <>มีในรายชื่ออยู่แล้ว: {parsed.already.join(", ")}</>}
           </p>
         )}

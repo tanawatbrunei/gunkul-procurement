@@ -12,6 +12,14 @@ export function isBootstrapAdmin(email: string | null | undefined): boolean {
   return !!email && BOOTSTRAP_ADMIN_EMAILS.includes(email.toLowerCase());
 }
 
+/** Company email domains that may be added/sign up (GUNKUL group). The real
+ *  gate is the allowlist in firestore.rules; this only filters obvious typos. */
+export const COMPANY_EMAIL_RE = /^[^\s@]+@gunkul\.(com|co\.th)$/i;
+
+export function isCompanyEmail(email: string): boolean {
+  return COMPANY_EMAIL_RE.test(email.trim());
+}
+
 /** Firestore doc id for an allowlist entry: the lower-cased email. */
 export function allowlistId(email: string): string {
   return email.trim().toLowerCase();

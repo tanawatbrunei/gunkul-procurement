@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
 import { auth } from "./firebase";
 import ThemeToggle from "./ThemeToggle";
+import { isCompanyEmail } from "./config/admins";
 
 type Lang = "en" | "th";
 
@@ -33,7 +34,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
       signUpButton: "Create Account",
       loading: "Please wait...",
       error_invalid: "Invalid email or password",
-      error_domain: "Only @gunkul.com emails are allowed",
+      error_domain: "Only @gunkul.com or @gunkul.co.th emails are allowed",
       error_password_match: "Passwords do not match",
       error_password_length: "Password must be at least 6 characters",
       forgot: "Forgot password?",
@@ -57,7 +58,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
       signUpButton: "สร้างบัญชี",
       loading: "กรุณารอสักครู่...",
       error_invalid: "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
-      error_domain: "อนุญาตเฉพาะอีเมล @gunkul.com เท่านั้น",
+      error_domain: "อนุญาตเฉพาะอีเมล @gunkul.com หรือ @gunkul.co.th เท่านั้น",
       error_password_match: "รหัสผ่านไม่ตรงกัน",
       error_password_length: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
       forgot: "ลืมรหัสผ่าน?",
@@ -70,7 +71,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     },
   }[lang];
 
-  const validateDomain = (e: string) => e.endsWith("@gunkul.com");
+  const validateDomain = (e: string) => isCompanyEmail(e);
 
   const handleLogin = async () => {
     setError("");

@@ -102,7 +102,7 @@ gunkul-procurement/
 │   ├── ThemeContext.tsx    # context เก็บ theme light/dark
 │   ├── ThemeToggle.tsx     # ปุ่มสลับ theme
 │   │
-│   ├── LoginPage.tsx       # หน้า login (บังคับ @gunkul.com)
+│   ├── LoginPage.tsx       # หน้า login (บังคับ @gunkul.com / @gunkul.co.th)
 │   ├── HomePage.tsx        # หน้าแรก (landing, ข้อมูลบริษัท, project farm)
 │   ├── Dashboard.tsx       # dashboard (wrapper บางๆ ครอบ TrackingOverview)
 │   ├── TrackingOverview.tsx# กราฟวิเคราะห์ทั้งหมด (KPI, cycle-time, workload)
