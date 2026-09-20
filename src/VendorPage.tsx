@@ -251,7 +251,7 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
               { label: "จำนวน PO", value: vendor.numPOs?.toLocaleString() },
               { label: "ซื้อล่าสุด", value: vendor.lastPurchase },
             ].map(s => (
-              <div key={s.label} style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid #e0e7ff" }}>
+              <div key={s.label} style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: "700" }}>{s.label}</p>
                 <p style={{ margin: 0, fontSize: "15px", color: "var(--primary)", fontWeight: "800" }}>{s.value}</p>
               </div>
@@ -370,7 +370,7 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
             ) : poGroups.length === 0 ? (
               <p style={{ margin: 0, color: "var(--text-faint)", fontSize: "13px" }}>ยังไม่มีข้อมูล PO — นำเข้าไฟล์ All_Purchase orders ก่อน</p>
             ) : (
-              <div style={{ maxHeight: "260px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "12px" }}>
+              <div style={{ maxHeight: asPage ? undefined : "260px", overflowY: asPage ? undefined : "auto", border: "1px solid var(--border)", borderRadius: "12px" }}>
                 {poGroups.map(g => {
                   const open = expandedPO === g.poNumber;
                   return (
@@ -386,20 +386,38 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
                         <strong style={{ fontSize: "13px", color: "var(--primary)" }}>{bahtFull(g.amount)}</strong>
                       </button>
                       {open && (
+                        <div style={{ overflowX: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", background: "var(--surface-2)" }}>
+                          <thead>
+                            <tr style={{ color: "var(--text-faint)", fontSize: "10px" }}>
+                              {["#", "รหัสสินค้า", "รายการ", "จำนวน", "ราคา/หน่วย", "ยอด (บาท)"].map((h, k) => (
+                                <th key={h} style={{ padding: "6px 10px", textAlign: k >= 3 ? "right" : "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
                           <tbody>
-                            {g.lines.map((l, i) => (
-                              <tr key={i} style={{ borderTop: "1px solid #eef2f7" }}>
-                                <td style={{ padding: "7px 14px", color: "var(--text-muted)" }}>
-                                  {l.itemNumber && <span style={{ color: "var(--text-faint)", marginRight: "6px" }}>{l.itemNumber}</span>}
-                                  {l.productName || l.category || "-"}
-                                </td>
-                                <td style={{ padding: "7px 10px", textAlign: "right", color: "var(--text-faint)", whiteSpace: "nowrap" }}>{l.qty ? `${l.qty.toLocaleString()} ${l.unit}` : ""}</td>
-                                <td style={{ padding: "7px 14px", textAlign: "right", fontWeight: "700", color: "var(--primary)", whiteSpace: "nowrap" }}>{bahtFull(l.amountTHB)}</td>
-                              </tr>
-                            ))}
+                            {g.lines.map((l, i) => {
+                              const title = l.productName || l.category;
+                              return (
+                                <tr key={i} style={{ borderTop: "1px solid var(--border)", verticalAlign: "top" }}>
+                                  <td style={{ padding: "7px 10px", color: "var(--text-faint)" }}>{i + 1}</td>
+                                  <td style={{ padding: "7px 10px", color: "var(--text-muted)", fontFamily: "monospace", whiteSpace: "nowrap" }}>{l.itemNumber || "-"}</td>
+                                  <td style={{ padding: "7px 10px", color: "var(--text-muted)", minWidth: "220px" }}>
+                                    {title
+                                      ? <>{title}{l.productName && l.category && l.category !== l.productName && <span style={{ display: "block", fontSize: "10px", color: "var(--text-faint)" }}>{l.category}</span>}</>
+                                      : <span style={{ fontStyle: "italic", color: "var(--text-faint)" }}>ไม่ระบุชื่อสินค้า/หมวดในไฟล์ที่นำเข้า</span>}
+                                  </td>
+                                  <td style={{ padding: "7px 10px", textAlign: "right", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{l.qty ? `${l.qty.toLocaleString()} ${l.unit}` : (l.unit || "-")}</td>
+                                  <td style={{ padding: "7px 10px", textAlign: "right", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                    {l.unitPrice ? (l.currency && l.currency !== "THB" ? `${l.unitPrice.toLocaleString()} ${l.currency}` : bahtFull(l.unitPrice)) : "-"}
+                                  </td>
+                                  <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: "700", color: "var(--primary)", whiteSpace: "nowrap" }}>{bahtFull(l.amountTHB)}</td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
+                        </div>
                       )}
                     </div>
                   );
