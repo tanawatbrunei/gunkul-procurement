@@ -6,10 +6,12 @@ import {
 } from "recharts";
 import { IconAlertTriangle, IconClockHour4, IconChartLine, IconX } from "@tabler/icons-react";
 import {
-  STATUS_OPTIONS, STATUS_COLOR, normalizeStatus,
+  STATUS_OPTIONS, STATUS_COLOR, normalizeStatus, computeMoney,
 } from "./TrackingPage";
 import type { TrackingRow, Tab } from "./TrackingPage";
 import { parseDate, daysBetween, isPlaceholderRow } from "./data/trackingStats";
+import { computeTrackingKpis } from "./data/trackingKpis";
+import type { KpiCompleteness } from "./data/trackingKpis";
 
 /* ============================================================
    Cycle-time analysis — average calendar days spent in each stage
@@ -64,6 +66,35 @@ const cardStyle: React.CSSProperties = {
   background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)",
   padding: "var(--sp-4)",
 };
+
+/** Missing-data share above which a KPI card warns that its number rests on thin data. */
+const INCOMPLETE_WARN_SHARE = 0.1;
+
+function fmtBaht(v: number): string {
+  if (v >= 1_000_000) return `฿${(v / 1_000_000).toLocaleString("th-TH", { maximumFractionDigits: 1 })}M`;
+  return `฿${Math.round(v).toLocaleString("th-TH")}`;
+}
+
+function KpiCard({ label, value, color, lines, completeness, missingLabel, title }: {
+  label: string; value: React.ReactNode; color: string; lines: React.ReactNode[];
+  completeness?: KpiCompleteness; missingLabel: string; title: string;
+}) {
+  const share = completeness && completeness.applicable > 0 ? completeness.missing / completeness.applicable : 0;
+  const warn = !!completeness && completeness.missing > 0 && share >= INCOMPLETE_WARN_SHARE;
+  return (
+    <div style={cardStyle} title={title}>
+      <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ fontSize: "var(--fs-h2)", fontWeight: 700, color, lineHeight: 1.2 }}>{value}</div>
+      {lines.map((l, i) => <div key={i} style={{ fontSize: "var(--fs-xs)", color: "var(--text-faint)", marginTop: 2 }}>{l}</div>)}
+      {warn && (
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--warning)", marginTop: 6, display: "flex", gap: 4, alignItems: "flex-start" }}>
+          <IconAlertTriangle size={13} stroke={1.75} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>ข้อมูลไม่ครบ {completeness!.missing.toLocaleString()} จาก {completeness!.applicable.toLocaleString()} รายการ ({missingLabel})</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface CycleTimeEntry {
   id: string;
@@ -164,6 +195,8 @@ export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
       completedPct: trackedRows.length ? Math.round((completedCount / trackedRows.length) * 100) : 0,
     };
   }, [trackedRows]);
+
+  const procKpis = useMemo(() => computeTrackingKpis(trackedRows, (r) => computeMoney(r).total), [trackedRows]);
 
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -303,6 +336,36 @@ export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
           <option value="all">ทุกคน (ทีม)</option>
           {tabs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
+      </div>
+
+      {/* Procurement KPIs */}
+      <div>
+        <h2 style={{ margin: "0 0 var(--sp-3)", fontSize: "1.1rem", color: "var(--text-strong)" }}>ตัวชี้วัดจัดซื้อ</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "var(--sp-3)" }}>
+          <KpiCard label="Open POs" color="var(--primary)"
+            title="PO ที่เปิดแล้วแต่ยังไม่ Completed/Cancelled — นับเลข PO ไม่ซ้ำ, มูลค่า = จำนวน × ราคา/หน่วย − ส่วนลด + VAT 7%"
+            value={procKpis.openPo.poCount.toLocaleString()}
+            lines={[fmtBaht(procKpis.openPo.value) + " (รวม VAT)", `จาก ${procKpis.openPo.rowCount.toLocaleString()} รายการ`]}
+            completeness={procKpis.openPo.completeness} missingLabel="ไม่มีจำนวน/ราคา จึงไม่ถูกนับมูลค่า" />
+          <KpiCard label="Pending PR → PO" color="var(--warning)"
+            title="มีเลข PR แต่ยังไม่มีเลข PO และยังไม่ Completed/Cancelled — aging = วันนี้ − Date PR"
+            value={procKpis.pendingPrToPo.count.toLocaleString()}
+            lines={[
+              procKpis.pendingPrToPo.avgAgingDays === null ? "aging —" : `aging เฉลี่ย ${procKpis.pendingPrToPo.avgAgingDays} วัน`,
+              procKpis.pendingPrToPo.maxAgingDays === null ? "" : `นานสุด ${procKpis.pendingPrToPo.maxAgingDays} วัน`,
+            ].filter(Boolean)}
+            completeness={procKpis.pendingPrToPo.completeness} missingLabel="Date PR ว่างหรือผิดปกติ จึงไม่ถูกนับ aging" />
+          <KpiCard label="On-Time Delivery" color="var(--success)"
+            title="สัดส่วนรายการที่ส่งมอบแล้ว (มี ทำรับ) และ ทำรับ ≤ วันต้องการสินค้า — นับเฉพาะรายการที่มีทั้งสองวันที่"
+            value={procKpis.onTimeDelivery.pct === null ? "—" : `${procKpis.onTimeDelivery.pct}%`}
+            lines={[`ตรงเวลา ${procKpis.onTimeDelivery.onTime.toLocaleString()} จาก ${procKpis.onTimeDelivery.measured.toLocaleString()} รายการที่วัดได้`]}
+            completeness={procKpis.onTimeDelivery.completeness} missingLabel="ส่งมอบแล้วแต่ไม่มีวันต้องการสินค้า" />
+          <KpiCard label="At-Risk / Overdue" color={procKpis.atRisk.count ? "var(--danger)" : "var(--text-strong)"}
+            title="เลยวันต้องการสินค้าแล้ว ยังไม่มีวันทำรับ และยังไม่ Completed/Cancelled"
+            value={procKpis.atRisk.count.toLocaleString()}
+            lines={["เลยวันต้องการสินค้า ยังไม่ส่งมอบ"]}
+            completeness={procKpis.atRisk.completeness} missingLabel="ไม่มีวันต้องการสินค้า จึงตรวจความเสี่ยงไม่ได้" />
+        </div>
       </div>
 
       {/* KPI cards */}

@@ -236,9 +236,12 @@ function syncSheetBatched(sheet, tabId) {
    stay the source for a person's own table. Failures here are logged and
    never break the main row sync (the website falls back to full rows).
    ============================================================ */
+var SLIM_SCHEMA = 2;   // bump when SLIM_HEADERS changes (the website ignores older docs)
 var SLIM_HEADERS = [
   "No.", "Company", "Urgent", "Status", "PR No.", "Date PR", "PA No.",
-  "PO No.", "Date PO Submitted", "Project", "Description", "Vendor", "Remark",
+  "Date PA Submitted", "Date PA Approved", "PO No.", "Date PO Submitted",
+  "Date PO Approved", "Project", "Description", "Vendor", "Remark",
+  "Qty", "ราคา/หน่วย", "Dis.", "Budget", "วันต้องการสินค้า", "ทำรับ",
 ];
 var SLIM_MAX_CHARS = 900000;   // Firestore doc limit is 1 MiB
 
@@ -274,13 +277,14 @@ function writeSlimTab(sheet, tabId) {
   if (json.length > SLIM_MAX_CHARS) json = JSON.stringify(buildSlimRows(sheet, true));
   if (json.length > SLIM_MAX_CHARS) { Logger.log("Slim doc too large for " + tabId + " — skipped"); return; }
   var url = firestoreBaseUrl() + "/trackingSlim/" + tabId
-    + "?updateMask.fieldPaths=json&updateMask.fieldPaths=updatedAt";
+    + "?updateMask.fieldPaths=json&updateMask.fieldPaths=updatedAt&updateMask.fieldPaths=schema";
   var resp = UrlFetchApp.fetch(url, {
     method: "patch",
     contentType: "application/json",
     headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
     payload: JSON.stringify({ fields: {
       json: { stringValue: json },
+      schema: { integerValue: String(SLIM_SCHEMA) },
       updatedAt: { timestampValue: new Date().toISOString() },
     } }),
     muteHttpExceptions: true,

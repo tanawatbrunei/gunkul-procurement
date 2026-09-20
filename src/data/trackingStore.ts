@@ -112,6 +112,10 @@ export function getRowsError(tabId: string): string | null {
    reading every row of every tab — the biggest single saving on the free
    Firestore read quota. Tabs with no slim doc yet (script not updated, or
    rules not published) fall back to the full rows listeners above. */
+/** Slim docs written by an older script lack fields the Dashboard needs (PA/PO
+ *  approved dates, qty/price, needed/delivered dates) — ignore them so the
+ *  caller falls back to full rows instead of showing wrong numbers. */
+const SLIM_SCHEMA = 2;
 let slimRows: Record<string, TrackingRow[]> = {};
 let slimLoaded = false;
 let slimUnsub: (() => void) | null = null;
@@ -124,6 +128,7 @@ function ensureSlimListener() {
     (snap) => {
       const next: Record<string, TrackingRow[]> = {};
       snap.docs.forEach((d) => {
+        if (Number(d.data().schema ?? 1) < SLIM_SCHEMA) return;
         try {
           const parsed = JSON.parse(String(d.data().json ?? "[]"));
           if (Array.isArray(parsed)) next[d.id] = parsed as TrackingRow[];
