@@ -11,6 +11,8 @@ import {
 import type { TrackingRow, Tab } from "./TrackingPage";
 import { parseDate, daysBetween, isPlaceholderRow } from "./data/trackingStats";
 import TrackingKpiSection from "./TrackingKpiSection";
+import TrackingBottleneckSection from "./TrackingBottleneckSection";
+import { CYCLE_STAGES } from "./data/trackingBottleneck";
 
 /* ============================================================
    Cycle-time analysis — average calendar days spent in each stage
@@ -18,14 +20,10 @@ import TrackingKpiSection from "./TrackingKpiSection";
    the actual bottleneck instead of guessing. Delivery isn't tracked
    consistently by the team, so it's excluded here. Only rows with
    BOTH boundary dates present (and a plausible <1yr gap, to ignore
-   obvious typos) count toward a stage's average.
+   obvious typos) count toward a stage's average. The stage list itself
+   (CYCLE_STAGES) lives in data/trackingBottleneck.ts, shared with the
+   per-project bottleneck section.
    ============================================================ */
-const CYCLE_STAGES: { label: string; from: keyof TrackingRow; to: keyof TrackingRow }[] = [
-  { label: "ได้รับ PR → เปิด PA", from: "prDate", to: "paSubmittedDate" },
-  { label: "เปิด PA → อนุมัติ PA", from: "paSubmittedDate", to: "paApprovedDate" },
-  { label: "อนุมัติ PA → เปิด PO", from: "paApprovedDate", to: "poSubmittedDate" },
-  { label: "เปิด PO → อนุมัติ PO", from: "poSubmittedDate", to: "poApprovedDate" },
-];
 
 /* ============================================================
    PR-received-per-month trend, broken down by person — shows whether
@@ -307,6 +305,8 @@ export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
       </div>
 
       <TrackingKpiSection rows={trackedRows} tabs={tabs} rowsByTab={rowsByTab} scope={scope} />
+
+      <TrackingBottleneckSection rows={trackedRows} />
 
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--sp-3)" }}>
