@@ -639,8 +639,9 @@ export async function fetchItemPriceHistory(itemNumber: string): Promise<Map<str
 
 /** Fetch all PO lines for one vendor (for the vendor PO drill-down). */
 export async function fetchVendorPOLines(vendorCode: string): Promise<POLine[]> {
-  const snap = await getDocs(collection(db, "poLines"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...(d.data() as Omit<POLine, "id">) }))
-    .filter((l) => l.vendorCode === vendorCode);
+  // Server-side filter: reads only this vendor's lines. (This used to fetch the
+  // WHOLE poLines collection and filter in the browser — one vendor view cost
+  // tens of thousands of reads against the free-plan quota.)
+  const snap = await getDocs(query(collection(db, "poLines"), where("vendorCode", "==", vendorCode)));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<POLine, "id">) }));
 }
