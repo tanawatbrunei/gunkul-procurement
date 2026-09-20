@@ -258,22 +258,14 @@ await uploadBytes(r, file);
 const url = await getDownloadURL(r); // เก็บ url นี้ไว้ใน Firestore doc
 ```
 
-### Security Rules — `firestore.rules`
+### Security Rules — `firestore.rules` (ระบบปิด)
 
-กฎ **เหมือนกันหมดเกือบทุก collection**:
-```
-allow read, write: if request.auth != null;
-```
-- **What:** ใครก็ตามที่ login แล้ว (auth != null) อ่าน/เขียนได้ทุกอย่าง; ไม่ login = ทำอะไรไม่ได้
-- **Why เรียบง่ายแบบนี้:** เป็นแอปภายในทีมเล็ก ทุกคนเชื่อใจกัน ไม่ต้องแยกสิทธิ์ราย field
+ทุก collection ใช้ `isMember()` = อีเมลที่**ยืนยันแล้ว** และอยู่ใน `allowedUsers/{email}` (หรือเป็น bootstrap admin)
+- `allowedUsers`: ทุกคนอ่านได้เฉพาะเอกสารของตัวเอง, แสดงรายการ/เพิ่ม/แก้/ลบได้เฉพาะ admin
+- `vendors`: ลบได้เฉพาะ admin (`isAdmin()` = bootstrap admin หรือ role `admin` ในรายชื่อ)
+- รายละเอียด การจัดการผู้ใช้ และ**ลำดับการเปิดใช้ที่ปลอดภัย** ดู [`docs/SECURITY.md`](SECURITY.md)
 - **⚠️ How to deploy:** ไฟล์นี้ **ไม่ auto-deploy** — ต้องเข้า Firebase Console → Firestore → Rules
-  → paste → **Publish** เอง ทุกครั้งที่เพิ่ม collection ใหม่ ต้องเพิ่ม match block ที่นี่ด้วย
-
-**ข้อยกเว้น — `vendors` (delete เท่านั้น):** ระบบยังไม่มี role จริง แต่การ **ลบ Vendor ทั้งราย**
-ต้องเป็น admin เท่านั้น (ตาม `isAdmin()` helper ในไฟล์ rules — เช็ค
-`request.auth.token.email` กับ allowlist ฮาร์ดโค้ด) ต้องแก้ 2 จุดคู่กันเสมอถ้าจะเพิ่ม/ลบ admin:
-`firestore.rules` (`isAdmin()`) และ `src/config/admins.ts` (`ADMIN_EMAILS`) — ฝั่ง React ใช้ไฟล์หลัง
-ซ่อนปุ่มลบใน UI (ux เท่านั้น) ส่วน rules คือด่านบังคับจริงฝั่ง server
+  → paste → **Publish** เอง ทุกครั้งที่เพิ่ม collection ใหม่ ต้องเพิ่ม match block (ใช้ `isMember()`) ที่นี่ด้วย
 
 ---
 

@@ -107,6 +107,7 @@ google-apps-script/
 
 - `trackingTabs/{tabId}` `{ name, order }`, subcollection `rows/{rowId}` (PR/PA/PO fields).
 - `meta/companyUpdates` `{ updates: { [companyCode]: "YYYY-MM-DD" } }` (stamped on import).
+- `allowedUsers/{email}` `{ email, role, addedBy, addedAt }` — the access allowlist (closed system, see docs/SECURITY.md).
 - Item/vendor aggregates + project docs written by the import + project flows.
 
 ## 9. Working conventions (how changes ship here)

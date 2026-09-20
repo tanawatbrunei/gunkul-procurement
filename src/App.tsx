@@ -1,7 +1,7 @@
 import VendorPage from "./VendorPage";
 import TrackingPage from "./TrackingPage";
 import { useState, useEffect, useRef } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { auth } from "./firebase";
 import DashboardPage from "./Dashboard";
@@ -12,6 +12,9 @@ import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import ProjectPage from "./ProjectPage";
 import ItemMasterPage from "./ItemMasterPage";
+import UsersPage from "./UsersPage";
+import { AccessProvider, useAccessCheck } from "./access";
+import { CheckingScreen, VerifyEmailScreen, NotAllowedScreen } from "./components/AccessGate";
 import Sidebar from "./Sidebar";
 import type { Page } from "./Sidebar";
 
@@ -70,19 +73,39 @@ export default function App() {
     });
   });
 
+  // Closed system: signed in is not enough. Email must be verified and on the
+  // admin-managed allowlist (enforced for real by firestore.rules).
+  const [accessKey, setAccessKey] = useState(0);
+  const access = useAccessCheck(currentUser, accessKey);
+  const logout = () => { void signOut(auth); };
+
   if (!loggedIn) {
     return <LoginPage onLogin={() => setLoggedIn(true)} />;
   }
+  if (!currentUser || access.status === "checking") return <CheckingScreen />;
+  if (access.status === "unverified") {
+    return <VerifyEmailScreen user={currentUser} onChecked={() => setAccessKey((k) => k + 1)} onSignOut={logout} />;
+  }
+  if (access.status === "denied" || access.status === "error") {
+    return (
+      <NotAllowedScreen email={currentUser.email ?? ""} onSignOut={logout}
+        onRecheck={() => setAccessKey((k) => k + 1)}
+        error={access.status === "error" ? access.message : undefined} />
+    );
+  }
+  const isAdmin = access.isAdmin;
 
   const userLabel = currentUser?.email?.split("@")[0] ?? "";
 
   return (
+    <AccessProvider value={{ isAdmin }}>
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
       <Sidebar
         currentPage={currentPage}
         onNavigate={navigate}
         userLabel={userLabel}
-        onLogout={() => setLoggedIn(false)}
+        isAdmin={isAdmin}
+        onLogout={logout}
       />
       <main style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1 }}>
@@ -95,6 +118,7 @@ export default function App() {
           {visited.has("team") && <div style={pageStyle("team")}><OrgChartPage /></div>}
           {visited.has("knowledge") && <div style={pageStyle("knowledge")}><KnowledgePage /></div>}
           {visited.has("esg") && <div style={pageStyle("esg")}><ESGPage /></div>}
+          {isAdmin && visited.has("users") && <div style={pageStyle("users")}><UsersPage /></div>}
         </div>
         <footer
           style={{
@@ -109,5 +133,6 @@ export default function App() {
         </footer>
       </main>
     </div>
+    </AccessProvider>
   );
 }
