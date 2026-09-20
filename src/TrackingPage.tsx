@@ -69,6 +69,12 @@ const STATUS_ALIASES: Record<string, Status> = {
   "ok": "Completed", "completed": "Completed", "done": "Completed", "เสร็จ": "Completed", "เสร็จแล้ว": "Completed", "เรียบร้อย": "Completed",
   "cancelled": "Cancelled", "canceled": "Cancelled", "cancel": "Cancelled", "ยกเลิก": "Cancelled",
   "on hold": "On Hold", "hold": "On Hold", "พัก": "On Hold", "ระงับ": "On Hold",
+  // Free-text values found in the live Sheet (each affects only a handful of rows).
+  "cancel pr": "Cancelled",
+  "draft pa": "Draft", "draft po": "Draft", "ทำ pa ได้เลย": "Draft",
+  "pending add vendor": "Draft", "รอ add vendor": "Draft", "ขอใบเสนอราคา": "Draft", "รอใบเสนอราคา": "Draft",
+  "pa approval": "Pending PA Approval",
+  "wait shipment": "In Progress", "wait payment": "In Progress",
 };
 
 export function normalizeStatus(raw: string | undefined): string | undefined {
