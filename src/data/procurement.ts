@@ -407,6 +407,7 @@ function sameSubset(prev: Record<string, unknown> | undefined, next: Record<stri
 }
 
 export interface ImportResult {
+  files: number;
   newPOs: number;
   newLines: number;
   skippedExisting: number;
@@ -446,17 +447,41 @@ async function loadAllPOLines(): Promise<POLine[]> {
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<POLine, "id">) }));
 }
 
+export interface POFileInput {
+  buf: ArrayBuffer;
+  name: string;
+}
+
+/** Combine several parsed PO files into one. A PO number that shows up in
+ *  more than one file is kept once (from the first file) so its lines are
+ *  never doubled. */
+function mergeParsed(parts: ParsedPO[]): ParsedPO {
+  const seen = new Set<string>();
+  const lines: ParsedPO["lines"] = [];
+  let skippedNoPO = 0, skippedBeforeDate = 0;
+  for (const p of parts) {
+    skippedNoPO += p.skippedNoPO;
+    skippedBeforeDate += p.skippedBeforeDate;
+    const fresh = new Set(p.poNumbers.filter((n) => !seen.has(n)));
+    for (const l of p.lines) if (fresh.has(l.poNumber)) lines.push(l);
+    fresh.forEach((n) => seen.add(n));
+  }
+  return { lines, poNumbers: [...seen], skippedNoPO, skippedBeforeDate };
+}
+
 /**
- * Import a PO file (merge by PO number) and recompute vendors + items.
+ * Import one or more PO files (merge by PO number) and recompute vendors + items.
+ * Recomputing reads every poLine, so importing several files in one call does
+ * that expensive read once instead of once per file.
  * Optionally enrich item names from a parsed products map.
  */
 export async function importPurchaseOrders(
-  poBuf: ArrayBuffer,
+  files: POFileInput[],
   startDate: string,
   productMap?: Map<string, { productName: string; searchName: string }>,
-  fileName = "",
 ): Promise<ImportResult> {
-  const parsed = parsePurchaseOrders(poBuf, startDate);
+  const parsed = mergeParsed(files.map((f) => parsePurchaseOrders(f.buf, startDate)));
+  const fileName = files.map((f) => f.name).join(", ");
   const existing = await loadImportedPOs();
 
   // Merge: keep only lines whose PO number is new.
@@ -565,6 +590,7 @@ export async function importPurchaseOrders(
   }
 
   return {
+    files: files.length,
     newPOs: newPONumbers.length,
     newLines: newLineEntries.length,
     skippedExisting: parsed.poNumbers.length - newPONumbers.length,
