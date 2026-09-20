@@ -82,3 +82,16 @@ new Sheet. If you want to keep that history, ask Claude to export the
 current Tracking Sheet data to an Excel file per person, then paste those
 rows into the matching Sheet tab (above the locked header) — the script
 picks them up the moment they're pasted in.
+
+
+## Read-quota saver: `trackingSlim` (added later)
+
+`Code.gs` also writes one compact document per tab (`trackingSlim/{tabId}`)
+after every sync. The website's Summary, Dashboard and cross-tab search read
+those (a handful of documents) instead of every row, which keeps Firestore
+reads well under the free-plan quota. After pasting the updated `Code.gs`:
+
+1. Run `fullResync` once (it creates the slim documents for every tab).
+2. Publish the updated `firestore.rules` (adds read access to `trackingSlim`).
+
+Until both are done the website simply keeps using the old (heavier) path.

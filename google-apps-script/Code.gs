@@ -117,6 +117,7 @@ function onEditInstallable(e) {
     for (var r = firstRow; r <= lastRow; r++) {
       syncRow(sheet, tabId, r);
     }
+    writeSlimTabSafe(sheet, tabId);
     writeLastSyncedAt();
   } catch (err) {
     Logger.log("onEditInstallable error: " + err);
@@ -144,6 +145,7 @@ function fullResync() {
     if (name === CONFIG_SHEET_NAME) return;
     var tabId = getOrCreateTabId(name);
     syncSheetBatched(sheet, tabId);
+    writeSlimTabSafe(sheet, tabId);
   });
   pruneDeletedTabs();
   writeLastSyncedAt();
@@ -225,6 +227,77 @@ function syncSheetBatched(sheet, tabId) {
   pruneDeletedRows(tabId, seenRowIds);
 }
 
+/* ============================================================
+   Compact per-tab copy: trackingSlim/{tabId} = { json, count, updatedAt }.
+   The website's summary, dashboard and cross-tab search read THIS (one
+   document per tab) instead of every row of every tab — that keeps
+   Firestore reads far under the free-plan daily quota. Only the fields
+   those screens need are included; the full rows under trackingTabs (rows subcollection)
+   stay the source for a person's own table. Failures here are logged and
+   never break the main row sync (the website falls back to full rows).
+   ============================================================ */
+var SLIM_HEADERS = [
+  "No.", "Company", "Urgent", "Status", "PR No.", "Date PR", "PA No.",
+  "PO No.", "Date PO Submitted", "Project", "Description", "Vendor", "Remark",
+];
+var SLIM_MAX_CHARS = 900000;   // Firestore doc limit is 1 MiB
+
+function writeSlimTabSafe(sheet, tabId) {
+  try { writeSlimTab(sheet, tabId); } catch (err) { Logger.log("writeSlimTab error: " + err); }
+}
+
+function buildSlimRows(sheet, dropLongText) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var block = sheet.getRange(2, 1, lastRow - 1, HEADERS.length + 2).getValues();
+  var out = [];
+  for (var i = 0; i < block.length; i++) {
+    var rowId = block[i][HEADERS.length];
+    if (!rowId) continue;                       // blank / not yet synced
+    var row = { id: rowId };
+    for (var k = 0; k < SLIM_HEADERS.length; k++) {
+      var header = SLIM_HEADERS[k];
+      if (dropLongText && (header === "Description" || header === "Remark")) continue;
+      var idx = HEADERS.indexOf(header);
+      var m = FIELD_MAP[header];
+      if (idx < 0 || !m) continue;
+      var v = coerce(block[i][idx], m.type);
+      if (v !== undefined) row[m.key] = v;
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+function writeSlimTab(sheet, tabId) {
+  var json = JSON.stringify(buildSlimRows(sheet, false));
+  if (json.length > SLIM_MAX_CHARS) json = JSON.stringify(buildSlimRows(sheet, true));
+  if (json.length > SLIM_MAX_CHARS) { Logger.log("Slim doc too large for " + tabId + " — skipped"); return; }
+  var url = firestoreBaseUrl() + "/trackingSlim/" + tabId
+    + "?updateMask.fieldPaths=json&updateMask.fieldPaths=updatedAt";
+  var resp = UrlFetchApp.fetch(url, {
+    method: "patch",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+    payload: JSON.stringify({ fields: {
+      json: { stringValue: json },
+      updatedAt: { timestampValue: new Date().toISOString() },
+    } }),
+    muteHttpExceptions: true,
+  });
+  if (resp.getResponseCode() >= 300) {
+    Logger.log("writeSlimTab FAILED (" + resp.getResponseCode() + "): " + resp.getContentText());
+  }
+}
+
+function deleteSlimDoc(tabId) {
+  UrlFetchApp.fetch(firestoreBaseUrl() + "/trackingSlim/" + tabId, {
+    method: "delete",
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true,
+  });
+}
+
 /* Stamps meta/trackingSync.lastSyncedAt so the website can show a
    "last synced X ago" indicator instead of leaving data freshness a
    guessing game. Cheap: one small write per sync run, not per row. */
@@ -258,6 +331,7 @@ function pruneDeletedTabs() {
     if (name && !current[name]) {
       pruneDeletedRows(tabId, {});   // delete every row under the stale tab
       deleteFirestoreTab(tabId);     // delete the tab doc itself
+      deleteSlimDoc(tabId);          // and its compact summary copy
       configSheet.deleteRow(r + 1);  // remove its _Config bookkeeping row (1-based)
       Logger.log("Pruned stale tab: " + name);
     }

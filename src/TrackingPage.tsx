@@ -4,7 +4,8 @@ import { db } from "./firebase";
 import SyncStatus from "./components/SyncStatus";
 import TrackingSummary, { StatCards, StatDefinitions } from "./TrackingSummary";
 import { computeTrackingStats, isPlaceholderRow } from "./data/trackingStats";
-import { subscribeTabs, getTabsSnapshot, getTabsError, subscribeRows, getRowsSnapshot } from "./data/trackingStore";
+import { subscribeTabs, getTabsSnapshot, getTabsError, subscribeRows, getRowsSnapshot, getSlimSnapshot } from "./data/trackingStore";
+import { useTrackingRowsByTab } from "./data/useTrackingRows";
 import * as XLSX from "xlsx";
 import {
   IconX,
@@ -298,7 +299,6 @@ export default function TrackingPage() {
   // Landing view is the team summary; a person's tab opens their own table.
   const [showSummary, setShowSummary] = useState(true);
   const [showDone, setShowDone] = useState(false);
-  const [rowsByTab, setRowsByTab] = useState<Record<string, TrackingRow[]>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewingRow, setViewingRow] = useState<TrackingRow | null>(null);
   const [search, setSearch] = useState("");
@@ -323,24 +323,21 @@ export default function TrackingPage() {
     });
   }, []);
 
-  useEffect(() => {
-    const unsubs = tabs.map((t) =>
-      subscribeRows(t.id, () => {
-        setRowsByTab((prev) => ({
-          ...prev,
-          [t.id]: getRowsSnapshot(t.id).map((r) => ({ ...r, status: normalizeStatus(r.status) })),
-        }));
-      }),
-    );
-    return () => unsubs.forEach((u) => u());
-  }, [tabs]);
+  // Summary numbers come from the compact per-tab docs (see useTrackingRows).
+  const rawRowsByTab = useTrackingRowsByTab(tabs);
+  const rowsByTab = useMemo(() => {
+    const out: Record<string, TrackingRow[]> = {};
+    for (const id of Object.keys(rawRowsByTab)) out[id] = rawRowsByTab[id].map((r) => ({ ...r, status: normalizeStatus(r.status) }));
+    return out;
+  }, [rawRowsByTab]);
 
+  // A person's full rows are only loaded once their tab is opened.
   useEffect(() => {
-    if (!activeTab) { setRows([]); return; }
+    if (!activeTab || showSummary) { setRows([]); return; }
     return subscribeRows(activeTab, () => {
       setRows(getRowsSnapshot(activeTab).map((r) => ({ ...r, status: normalizeStatus(r.status) })));
     });
-  }, [activeTab]);
+  }, [activeTab, showSummary]);
 
   // Cross-tab search: if the searched number isn't in the current person's tab,
   // find the tab that DOES contain it and jump there automatically. Only runs
@@ -362,7 +359,7 @@ export default function TrackingPage() {
       for (const t of tabs) {
         if (t.id === activeTab) continue;
         try {
-          let tabRows = otherTabCache.current.get(t.id);
+          let tabRows: Searchable[] | undefined = getSlimSnapshot().rows[t.id] ?? otherTabCache.current.get(t.id);
           if (!tabRows) {
             const snap = await getDocs(collection(db, "trackingTabs", t.id, "rows"));
             if (cancelled) return;

@@ -104,3 +104,51 @@ export function getRowsSnapshot(tabId: string): TrackingRow[] {
 export function getRowsError(tabId: string): string | null {
   return rowsErrorByTab[tabId] ?? null;
 }
+
+// --- trackingSlim (one listener, ONE small doc per tab) ---
+/* The Apps Script also writes a compact copy of each tab's rows into ONE
+   document, `trackingSlim/{tabId}` = { json: "[...rows...]" } (only the fields
+   the summary, dashboard and search need). Reading 12 such docs replaces
+   reading every row of every tab — the biggest single saving on the free
+   Firestore read quota. Tabs with no slim doc yet (script not updated, or
+   rules not published) fall back to the full rows listeners above. */
+let slimRows: Record<string, TrackingRow[]> = {};
+let slimLoaded = false;
+let slimUnsub: (() => void) | null = null;
+const slimListeners = new Set<Listener>();
+
+function ensureSlimListener() {
+  if (slimUnsub) return;
+  slimUnsub = onSnapshot(
+    collection(db, "trackingSlim"),
+    (snap) => {
+      const next: Record<string, TrackingRow[]> = {};
+      snap.docs.forEach((d) => {
+        try {
+          const parsed = JSON.parse(String(d.data().json ?? "[]"));
+          if (Array.isArray(parsed)) next[d.id] = parsed as TrackingRow[];
+        } catch { /* corrupt doc: treat as missing, caller falls back */ }
+      });
+      slimRows = next;
+      slimLoaded = true;
+      slimListeners.forEach((l) => l());
+    },
+    () => {
+      // e.g. rules not published yet: behave as "no slim data".
+      slimRows = {};
+      slimLoaded = true;
+      slimListeners.forEach((l) => l());
+    },
+  );
+}
+
+export function subscribeSlim(listener: Listener): () => void {
+  ensureSlimListener();
+  slimListeners.add(listener);
+  if (slimLoaded) listener();
+  return () => { slimListeners.delete(listener); };
+}
+
+export function getSlimSnapshot(): { rows: Record<string, TrackingRow[]>; loaded: boolean } {
+  return { rows: slimRows, loaded: slimLoaded };
+}
