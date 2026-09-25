@@ -102,10 +102,17 @@ google-apps-script/
   `Code.gs` in the repo does NOT deploy it — the owner must paste it into the
   sheet's Apps Script editor and (for trigger/protection changes) re-run the
   relevant setup function. Keep the repo copy as the source of truth.
+- The script is bound to whichever Sheet file it's pasted into — there's no
+  spreadsheet ID in the code. Switching the master file (e.g. a copy the team
+  now owns) means pasting `Code.gs` into the new file and disabling the old
+  file's triggers — see "Switching the master spreadsheet" in SETUP.md.
+- Optional per-row `trackingStatus` ("Note3" in the Sheet — some tabs compute
+  an overdue/on-time flag with their own formula, e.g. `🟢 ทันกำหนด`) is synced
+  automatically when present; see SETUP.md and `data/trackingStatusNote.ts`.
 
 ## 8. Firestore data shapes (quick reference)
 
-- `trackingTabs/{tabId}` `{ name, order }`, subcollection `rows/{rowId}` (PR/PA/PO fields).
+- `trackingTabs/{tabId}` `{ name, order }`, subcollection `rows/{rowId}` (PR/PA/PO fields, plus optional `trackingStatus`).
 - `trackingSlim/{tabId}` `{ json, updatedAt }` — compact copy of a tab's rows (written by the Apps Script; the Summary/Dashboard/search read this instead of every row → far fewer Firestore reads; web falls back to full rows if absent).
 - `meta/companyUpdates` `{ updates: { [companyCode]: "YYYY-MM-DD" } }` (stamped on import).
 - `allowedUsers/{email}` `{ email, role, addedBy, addedAt }` — the access allowlist (closed system, see docs/SECURITY.md).
