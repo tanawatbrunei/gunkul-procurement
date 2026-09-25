@@ -95,3 +95,36 @@ reads well under the free-plan quota. After pasting the updated `Code.gs`:
 2. Publish the updated `firestore.rules` (adds read access to `trackingSlim`).
 
 Until both are done the website simply keeps using the old (heavier) path.
+
+## Switching the master spreadsheet
+
+The script is bound to whichever Sheet file you paste it into — there is no
+spreadsheet ID to edit in the code. To move to a new master file (e.g. a copy
+made so your own team owns/controls it):
+
+1. Open the **new** Sheet → **Extensions → Apps Script** → paste the current
+   `Code.gs` → **Save**.
+2. Run `setupTriggers` once (installs the onEdit + 6-hourly triggers) and
+   `setupProtection` if you want the header-row protection.
+3. Run `fullResync` once — this also creates every tab's `trackingSlim` doc
+   and syncs any edits made on the new copy since it was duplicated.
+4. **On the OLD Sheet:** open its Apps Script editor and delete its triggers
+   (`Triggers` in the left sidebar, or run `ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t))`
+   once from the editor). Skipping this step means both sheets keep writing
+   to the same Firestore rows, and whichever synced last wins — a real risk
+   if a copy carries over the old sheet's `_RowID`/`_Hash` values (as a
+   straight file copy does).
+5. A new person tab in the new Sheet is picked up automatically on its first
+   edit or the next `fullResync` — no code change needed.
+
+### Optional per-row status flag ("Note3")
+
+Some tabs may have their own formula 3 columns after the hidden `_RowID`/
+`_Hash` pair (i.e. 2 columns after them) that flags each row, e.g.
+`🟢 ทันกำหนด`, `🔴 เกินกำหนด PR-PO (>5 วัน)`, `⚪ ยกเลิก`. If present, `Code.gs`
+syncs it to Firestore as `trackingStatus` automatically (nothing to set up) —
+tabs without that column are unaffected. The two columns before it (day-count
+workings the formula uses) are intentionally NOT synced: they change with
+today's date on every open row, which would turn every 6-hourly resync into a
+write storm. The website parses `trackingStatus` with
+`src/data/trackingStatusNote.ts`.

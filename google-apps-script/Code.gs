@@ -63,6 +63,17 @@ var FIELD_MAP = {
 };
 var SUPPLIER_COLS = ["Supplier 1", "Supplier 2", "Supplier 3"];
 
+// "Note3" — a per-row overdue/on-time flag some tabs compute with their own
+// formula (e.g. "🟢 ทันกำหนด", "🔴 เกินกำหนด PR-PO (>5 วัน)", "⚪ ยกเลิก"). It sits
+// 3 columns after the hidden _Hash column (_RowID, _Hash, Note1, Note2, Note3),
+// so it's read by a fixed offset from HEADERS.length rather than by name — it
+// is NOT part of HEADERS/FIELD_MAP. Note1/Note2 (the two columns before it)
+// are that formula's own day-count workings, not synced: they change with
+// today's date on every open row, which would turn every 6-hourly fullResync
+// into a write storm across the whole sheet. Guarded by getMaxColumns() so a
+// tab/sheet without these columns (e.g. an older sheet) is unaffected.
+var TRACKING_STATUS_COL = HEADERS.length + 5;
+
 /* ============================================================
    Triggers — install once via setupTriggers()
    ============================================================ */
@@ -159,13 +170,14 @@ function fullResync() {
 function syncSheetBatched(sheet, tabId) {
   var rowIdCol = HEADERS.length + 1;   // hidden _RowID
   var hashCol = HEADERS.length + 2;    // hidden _Hash
+  var hasTrackingStatus = sheet.getMaxColumns() >= TRACKING_STATUS_COL;
   var lastRow = sheet.getLastRow();
   var seenRowIds = {};
   if (lastRow < 2) { pruneDeletedRows(tabId, seenRowIds); return; }
 
   var numRows = lastRow - 1;
-  // One read for data + both helper columns (width = HEADERS + _RowID + _Hash).
-  var block = sheet.getRange(2, 1, numRows, HEADERS.length + 2).getValues();
+  // One read for data + helper columns (+ Note3 when this sheet has it).
+  var block = sheet.getRange(2, 1, numRows, hasTrackingStatus ? TRACKING_STATUS_COL : hashCol).getValues();
   var helpers = [];        // [ [rowId, hash], ... ] written back once at the end
   var requests = [];       // Firestore write/delete requests for fetchAll
   var helpersDirty = false;
@@ -205,6 +217,10 @@ function syncSheetBatched(sheet, tabId) {
       return idx >= 0 ? values[idx] : "";
     }).filter(function (v) { return v !== "" && v !== null; });
     if (suppliers.length) data.compareSuppliers = suppliers;
+    if (hasTrackingStatus) {
+      var trackingStatus = coerce(block[i][TRACKING_STATUS_COL - 1], "string");
+      if (trackingStatus !== undefined) data.trackingStatus = trackingStatus;
+    }
 
     var newHash = rowHash(data);
     if (String(oldHash) === newHash) {
@@ -249,7 +265,8 @@ function writeSlimTabSafe(sheet, tabId) {
 function buildSlimRows(sheet, dropLongText) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  var block = sheet.getRange(2, 1, lastRow - 1, HEADERS.length + 2).getValues();
+  var hasTrackingStatus = sheet.getMaxColumns() >= TRACKING_STATUS_COL;
+  var block = sheet.getRange(2, 1, lastRow - 1, hasTrackingStatus ? TRACKING_STATUS_COL : HEADERS.length + 2).getValues();
   var out = [];
   for (var i = 0; i < block.length; i++) {
     var rowId = block[i][HEADERS.length];
@@ -263,6 +280,10 @@ function buildSlimRows(sheet, dropLongText) {
       if (idx < 0 || !m) continue;
       var v = coerce(block[i][idx], m.type);
       if (v !== undefined) row[m.key] = v;
+    }
+    if (hasTrackingStatus) {
+      var trackingStatus = coerce(block[i][TRACKING_STATUS_COL - 1], "string");
+      if (trackingStatus !== undefined) row.trackingStatus = trackingStatus;
     }
     out.push(row);
   }
@@ -355,11 +376,12 @@ function deleteFirestoreTab(tabId) {
 function syncRow(sheet, tabId, rowIndex) {
   var rowIdCol = HEADERS.length + 1;   // hidden _RowID
   var hashCol = HEADERS.length + 2;    // hidden _Hash — lets us skip unchanged rows
-  var values = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
+  var hasTrackingStatus = sheet.getMaxColumns() >= TRACKING_STATUS_COL;
+  var full = sheet.getRange(rowIndex, 1, 1, hasTrackingStatus ? TRACKING_STATUS_COL : hashCol).getValues()[0];
+  var values = full.slice(0, HEADERS.length);
   var isBlank = values.every(function (v) { return v === "" || v === null; });
-  var helpers = sheet.getRange(rowIndex, rowIdCol, 1, 2).getValues()[0];
-  var rowId = helpers[0];
-  var oldHash = helpers[1];
+  var rowId = full[rowIdCol - 1];
+  var oldHash = full[hashCol - 1];
 
   if (isBlank) {
     if (rowId) deleteFirestoreRow(tabId, rowId);
@@ -385,6 +407,10 @@ function syncRow(sheet, tabId, rowIndex) {
     return idx >= 0 ? values[idx] : "";
   }).filter(function (v) { return v !== "" && v !== null; });
   if (suppliers.length) data.compareSuppliers = suppliers;
+  if (hasTrackingStatus) {
+    var trackingStatus = coerce(full[TRACKING_STATUS_COL - 1], "string");
+    if (trackingStatus !== undefined) data.trackingStatus = trackingStatus;
+  }
 
   // Only hit Firestore when the row's content actually changed. The hash is a
   // sheet cell (no Firestore cost), so an idle fullResync writes nothing.

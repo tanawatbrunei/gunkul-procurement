@@ -115,6 +115,10 @@ export interface TrackingRow {
   status?: Status | string;
   urgent?: boolean;
   remark?: string;
+  /** "Note3" in the Sheet — a per-row overdue/on-time flag some tabs compute
+   *  with their own formula, e.g. "🟢 ทันกำหนด", "🔴 เกินกำหนด PR-PO (>5 วัน)",
+   *  "⚪ ยกเลิก". Not every tab has it yet — see data/trackingStatusNote.ts. */
+  trackingStatus?: string;
 }
 
 export interface Tab {
