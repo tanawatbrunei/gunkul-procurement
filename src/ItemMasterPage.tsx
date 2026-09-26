@@ -466,7 +466,7 @@ export default function ItemMasterPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))" }}>
-                  {["รหัส", "ชื่อสินค้า", "PO ล่าสุด", "บริษัท", "Vendor", "ราคาซื้อล่าสุด", "วันที่ PO ออก", "ยอดซื้อ"].map((h, i) => (
+                  {["รหัส", "ชื่อสินค้า", "PO ล่าสุด", "บริษัท", "Vendor", "ราคาซื้อล่าสุด", "PO date", "ยอดซื้อ"].map((h, i) => (
                     <th key={h} style={{ padding: "13px 14px", textAlign: i >= 5 ? "right" : "left", fontWeight: 700, fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
                   ))}
                 </tr>

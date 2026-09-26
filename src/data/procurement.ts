@@ -23,6 +23,11 @@ export interface POLine {
   id: string;            // `${poNumber}__${seq}` — deterministic within a PO
   poNumber: string;
   poDate: string;        // YYYY-MM-DD (Accounting date, fallback Created date)
+  /** YYYY-MM-DD from "Created date and time" (time discarded, see toISODate).
+   *  Kept separate from poDate: Accounting Date is often blank until invoiced,
+   *  while Created Date is stamped by the ERP on every PO — Item Master's
+   *  "latest PO" (price/date/no.) is picked by this, not poDate. */
+  createdDate: string;
   company: string;       // Company code (GKE / GUE / ...) — one per import file
   status: PurchaseStatus;
   vendorCode: string;    // Vendor account
@@ -83,7 +88,8 @@ export interface ItemAgg {
   totalSpend: number;
   numVendors: number;
   lastPrice: number;
-  /** Date + PO No. of the single most recent purchase across all vendors (item-level table view). */
+  /** Created Date + PO No. of the single most recent purchase across all vendors
+   *  (item-level table view) — ordered by createdDate, see POLine.createdDate. */
   lastDate: string;
   lastPoNumber: string;
   avgPrice: number;
@@ -135,7 +141,7 @@ export function countsAsSpend(status: string): boolean {
 // ---------- Parsing ----------
 
 /** Column header → POLine field. Tolerant to spacing/case via normalizeHeader. */
-const PO_HEADERS: Record<string, keyof POLine | "createdDate"> = {
+const PO_HEADERS: Record<string, keyof POLine> = {
   "purchase order": "poNumber",
   "accounting date": "poDate",
   "created date and time": "createdDate",
@@ -188,12 +194,14 @@ export function parsePurchaseOrders(buf: ArrayBuffer, startDate: string): Parsed
     const vendorCode = clean(rec.vendorCode);
     if (!poNumber || !vendorCode) { skippedNoPO++; continue; }
 
-    const poDate = toISODate(rec.poDate) || toISODate(rec.createdDate);
+    const createdDate = toISODate(rec.createdDate);
+    const poDate = toISODate(rec.poDate) || createdDate;
     if (startDate && poDate && poDate < startDate) { skippedBeforeDate++; continue; }
 
     lines.push({
       poNumber,
       poDate,
+      createdDate,
       company: clean(rec.company).toUpperCase(),
       status: clean(rec.status),
       vendorCode,
@@ -311,7 +319,10 @@ export function aggregateItems(
     let r = vm.get(l.vendorCode);
     if (!r) { r = { name: l.vendorName, prices: [], qty: 0 }; vm.set(l.vendorCode, r); }
     if (l.vendorName) r.name = l.vendorName;
-    if (l.unitPrice > 0) r.prices.push({ p: l.unitPrice, d: l.poDate, po: l.poNumber });
+    // "Latest" is ordered by Created Date (falls back to poDate when blank),
+    // not poDate/Accounting Date — Accounting Date is often empty until
+    // invoiced, which would otherwise make "latest price/PO" unreliable.
+    if (l.unitPrice > 0) r.prices.push({ p: l.unitPrice, d: l.createdDate || l.poDate, po: l.poNumber });
     r.qty += l.qty;
     const m = meta.get(l.itemNumber);
     if (!m) meta.set(l.itemNumber, { productName: l.productName, category: l.category, unit: l.unit });
