@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { IconLayoutDashboard, IconTable } from "@tabler/icons-react";
-import DashboardPage from "./Dashboard";
-import TrackingPage from "./TrackingPage";
 import TrackingDrilldownView from "./TrackingDrilldownView";
 import type { DrilldownRequest } from "./TrackingDrilldownView";
+
+// Split further: Summary (Dashboard + all the KPI/Bottleneck/Spend sections)
+// and All Rows are each substantial on their own, and a session typically only
+// opens one or the other — no reason to fetch both chunks up front.
+const DashboardPage = lazy(() => import("./Dashboard"));
+const TrackingPage = lazy(() => import("./TrackingPage"));
 
 export type TrackingView = "summary" | "rows";
 
@@ -54,8 +58,10 @@ export default function TrackingHub({ view, onViewChange }: { view: TrackingView
           })}
         </div>
       </div>
-      {opened.has("summary") && <div style={{ display: view === "summary" ? "block" : "none" }}><DashboardPage onDrill={setDrilldown} /></div>}
-      {opened.has("rows") && <div style={{ display: view === "rows" ? "block" : "none" }}><TrackingPage /></div>}
+      <Suspense fallback={<div style={{ padding: "var(--sp-5)", color: "var(--text-faint)", fontSize: "var(--fs-sm)" }}>กำลังโหลด...</div>}>
+        {opened.has("summary") && <div style={{ display: view === "summary" ? "block" : "none" }}><DashboardPage onDrill={setDrilldown} /></div>}
+        {opened.has("rows") && <div style={{ display: view === "rows" ? "block" : "none" }}><TrackingPage /></div>}
+      </Suspense>
     </div>
   );
 }

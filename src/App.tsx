@@ -1,22 +1,35 @@
-import VendorPage from "./VendorPage";
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { auth } from "./firebase";
-import TrackingHub from "./TrackingHub";
 import type { TrackingView } from "./TrackingHub";
-import KnowledgePage from "./KnowledgePage";
-import ESGPage from "./ESGPage";
-import OrgChartPage from "./OrgChartPage";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
-import ProjectPage from "./ProjectPage";
-import ItemMasterPage from "./ItemMasterPage";
-import UsersPage from "./UsersPage";
 import { AccessProvider, useAccessCheck } from "./access";
 import { CheckingScreen, VerifyEmailScreen, NotAllowedScreen } from "./components/AccessGate";
 import Sidebar from "./Sidebar";
 import type { Page } from "./Sidebar";
+
+// Code-split every page except Home (always in `visited` from the start, so
+// there's nothing to gain from splitting it) and Login (needed before the
+// auth gate even resolves). Each page's chunk is fetched the first time its
+// `visited` entry is added — same "once per session" spirit as the
+// Firestore-read comment below, just for JS instead of reads. See CLAUDE.md
+// gotchas (bundle size).
+const ProjectPage = lazy(() => import("./ProjectPage"));
+const VendorPage = lazy(() => import("./VendorPage"));
+const ItemMasterPage = lazy(() => import("./ItemMasterPage"));
+const TrackingHub = lazy(() => import("./TrackingHub"));
+const OrgChartPage = lazy(() => import("./OrgChartPage"));
+const KnowledgePage = lazy(() => import("./KnowledgePage"));
+const ESGPage = lazy(() => import("./ESGPage"));
+const UsersPage = lazy(() => import("./UsersPage"));
+
+const pageLoadingFallback = (
+  <div style={{ padding: "var(--sp-7) var(--sp-5)", color: "var(--text-faint)", fontSize: "var(--fs-sm)" }}>
+    กำลังโหลด...
+  </div>
+);
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -124,14 +137,16 @@ export default function App() {
       <main style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1 }}>
           {visited.has("home") && <div style={pageStyle("home")}><HomePage setPage={navigate} /></div>}
-          {visited.has("project") && <div style={pageStyle("project")}><ProjectPage /></div>}
-          {visited.has("vendor") && <div style={pageStyle("vendor")}><VendorPage routeVendorCode={vendorCode} /></div>}
-          {visited.has("itemmaster") && <div style={pageStyle("itemmaster")}><ItemMasterPage /></div>}
-          {visited.has("tracking") && <div style={pageStyle("tracking")}><TrackingHub view={trackingView} onViewChange={setTrackingView} /></div>}
-          {visited.has("team") && <div style={pageStyle("team")}><OrgChartPage /></div>}
-          {visited.has("knowledge") && <div style={pageStyle("knowledge")}><KnowledgePage /></div>}
-          {visited.has("esg") && <div style={pageStyle("esg")}><ESGPage /></div>}
-          {isAdmin && visited.has("users") && <div style={pageStyle("users")}><UsersPage /></div>}
+          <Suspense fallback={pageLoadingFallback}>
+            {visited.has("project") && <div style={pageStyle("project")}><ProjectPage /></div>}
+            {visited.has("vendor") && <div style={pageStyle("vendor")}><VendorPage routeVendorCode={vendorCode} /></div>}
+            {visited.has("itemmaster") && <div style={pageStyle("itemmaster")}><ItemMasterPage /></div>}
+            {visited.has("tracking") && <div style={pageStyle("tracking")}><TrackingHub view={trackingView} onViewChange={setTrackingView} /></div>}
+            {visited.has("team") && <div style={pageStyle("team")}><OrgChartPage /></div>}
+            {visited.has("knowledge") && <div style={pageStyle("knowledge")}><KnowledgePage /></div>}
+            {visited.has("esg") && <div style={pageStyle("esg")}><ESGPage /></div>}
+            {isAdmin && visited.has("users") && <div style={pageStyle("users")}><UsersPage /></div>}
+          </Suspense>
         </div>
         <footer
           style={{
