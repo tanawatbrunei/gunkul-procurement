@@ -2,10 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 import SyncStatus from "./components/SyncStatus";
-import TrackingSummary, { StatCards, StatDefinitions } from "./TrackingSummary";
+import { StatCards, StatDefinitions } from "./TrackingSummary";
 import { computeTrackingStats, isPlaceholderRow } from "./data/trackingStats";
 import { subscribeTabs, getTabsSnapshot, getTabsError, subscribeRows, getRowsSnapshot, getSlimSnapshot } from "./data/trackingStore";
-import { useTrackingRowsByTab } from "./data/useTrackingRows";
 import * as XLSX from "xlsx";
 import {
   IconX,
@@ -14,7 +13,6 @@ import {
   IconFlagFilled,
   IconSearch,
   IconClipboardList,
-  IconLayoutDashboard,
   IconChevronUp,
   IconChevronDown,
   IconChevronRight,
@@ -310,8 +308,6 @@ export default function TrackingPage() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [rows, setRows] = useState<TrackingRow[]>([]);
-  // Landing view is the team summary; a person's tab opens their own table.
-  const [showSummary, setShowSummary] = useState(true);
   const [showDone, setShowDone] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewingRow, setViewingRow] = useState<TrackingRow | null>(null);
@@ -337,21 +333,15 @@ export default function TrackingPage() {
     });
   }, []);
 
-  // Summary numbers come from the compact per-tab docs (see useTrackingRows).
-  const rawRowsByTab = useTrackingRowsByTab(tabs);
-  const rowsByTab = useMemo(() => {
-    const out: Record<string, TrackingRow[]> = {};
-    for (const id of Object.keys(rawRowsByTab)) out[id] = rawRowsByTab[id].map((r) => ({ ...r, status: normalizeStatus(r.status) }));
-    return out;
-  }, [rawRowsByTab]);
-
-  // A person's full rows are only loaded once their tab is opened.
+  // A person's full rows load once their tab is selected (always exactly one
+  // tab active now — the old team-overview landing view moved to the Summary
+  // tab in Tracking & Dashboard, which already covers it with the real KPIs).
   useEffect(() => {
-    if (!activeTab || showSummary) { setRows([]); return; }
+    if (!activeTab) { setRows([]); return; }
     return subscribeRows(activeTab, () => {
       setRows(getRowsSnapshot(activeTab).map((r) => ({ ...r, status: normalizeStatus(r.status) })));
     });
-  }, [activeTab, showSummary]);
+  }, [activeTab]);
 
   // Cross-tab search: if the searched number isn't in the current person's tab,
   // find the tab that DOES contain it and jump there automatically. Only runs
@@ -363,7 +353,7 @@ export default function TrackingPage() {
   const otherTabCache = useRef<Map<string, Searchable[]>>(new Map());
   useEffect(() => {
     const q = search.trim().toLowerCase();
-    if (showSummary || !q || !activeTab || tabs.length <= 1) return;
+    if (!q || !activeTab || tabs.length <= 1) return;
     if (rows.some((r) => rowMatchesSearch(r, q))) { jumpedForRef.current = ""; return; }
     if (jumpedForRef.current === q) return;
 
@@ -386,7 +376,7 @@ export default function TrackingPage() {
     }, 450);
 
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [search, activeTab, rows, tabs, showSummary]);
+  }, [search, activeTab, rows, tabs]);
 
   const exportToExcel = () => {
     if (!activeTab) return;
@@ -472,29 +462,17 @@ export default function TrackingPage() {
             color: active ? "var(--text-strong)" : "var(--text-muted)",
             fontWeight: active ? 700 : 500,
           });
-          return (
-            <>
-              <button type="button" onClick={() => setShowSummary(true)}
-                style={{ ...pill(showSummary), display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <IconLayoutDashboard size={15} stroke={1.75} /> ภาพรวมทีม
-              </button>
-              <span aria-hidden style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
-              {tabs.map((tab) => (
-                <button key={tab.id} type="button"
-                  onClick={() => { setActiveTab(tab.id); setShowSummary(false); }}
-                  style={pill(!showSummary && tab.id === activeTab)}>
-                  {tab.name}
-                </button>
-              ))}
-            </>
-          );
+          return tabs.map((tab) => (
+            <button key={tab.id} type="button"
+              onClick={() => setActiveTab(tab.id)}
+              style={pill(tab.id === activeTab)}>
+              {tab.name}
+            </button>
+          ));
         })()}
       </div>
 
-      {showSummary && tabs.length > 0 ? (
-        <TrackingSummary tabs={tabs} rowsByTab={rowsByTab}
-          onOpenTab={(id) => { setActiveTab(id); setShowSummary(false); }} />
-      ) : !activeTab ? (
+      {!activeTab ? (
         <div style={{ color: "var(--text-muted)", fontSize: "var(--fs-sm)" }}>ยังไม่มีแท็ปข้อมูล — เริ่มกรอกใน Google Sheet กลาง แท็ปจะปรากฏที่นี่อัตโนมัติ</div>
       ) : (
         <>
