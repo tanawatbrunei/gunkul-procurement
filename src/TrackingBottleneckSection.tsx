@@ -118,8 +118,8 @@ export default function TrackingBottleneckSection({ rows }: { rows: TrackingRow[
                   </tr>
                 </thead>
                 <tbody>
-                  {pending.projects.map((p) => (
-                    <tr key={p.name} style={{ borderTop: "1px solid var(--border)" }}>
+                  {pending.projects.map((p, i) => (
+                    <tr key={p.name + '-' + i} style={{ borderTop: "1px solid var(--border)" }}>
                       <td style={{ ...td, textAlign: "left", fontWeight: 600, color: "var(--text-strong)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }} title={p.name}>{p.name}</td>
                       <td style={td}>{n(p.pending)}</td>
                       <td style={td}>{p.medianAge === null ? "—" : `${p.medianAge} วัน`}</td>

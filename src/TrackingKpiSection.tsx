@@ -6,8 +6,9 @@ import {
 } from "./data/trackingKpis";
 import { card, n, d, fmtBaht, Card, DataCard } from "./components/KpiCards";
 
-export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
+export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope, onDrill }: {
   rows: TrackingRow[]; tabs: Tab[]; rowsByTab: Record<string, TrackingRow[]>; scope: string;
+  onDrill: (title: string, description: string, rows: TrackingRow[]) => void;
 }) {
   const k = useMemo(() => computeTrackingKpis(rows, (r) => computeMoney(r).total), [rows]);
   const asOf = useMemo(() => new Date().toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }), []);
@@ -38,7 +39,8 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--sp-3)" }}>
           <Card label="PO ที่ยังดำเนินอยู่" color="var(--primary)" value={n(k.openPo.poCount)}
             title="เลข PO ไม่ซ้ำ ที่แถวมี PO No. และสถานะยังไม่ Completed/Cancelled (รวม PO ที่ยังรออนุมัติ)"
-            lines={[`จาก ${n(k.openPo.rowCount)} รายการ`]} />
+            lines={[`จาก ${n(k.openPo.rowCount)} รายการ`]}
+            onClick={k.openPo.rowCount ? () => onDrill("PO ที่ยังดำเนินอยู่", "มี PO No. และสถานะยังไม่ Completed/Cancelled", k.openPo.rows) : undefined} />
           <Card label="Pending PR → PO" color="var(--warning)" value={n(p.count)}
             title="มีเลข PR แต่ยังไม่มีเลข PO และยังไม่ Completed/Cancelled — อายุ = วันนี้ − Date PR"
             lines={[
@@ -46,13 +48,15 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
               p.aging.n ? `อายุ มัธยฐาน ${d(p.aging.medianDays)} · เฉลี่ย ${d(p.aging.avgDays)} · นานสุด ${d(p.aging.maxDays)}` : "อายุ —",
               p.aging.n ? `0–7 วัน ${n(p.aging.buckets[0])} · 8–30 วัน ${n(p.aging.buckets[1])} · เกิน 30 วัน ${n(p.aging.buckets[2])}` : "",
               p.unknownAge > 0 ? `ไม่มี Date PR ${n(p.unknownAge)} รายการ (ไม่นับในอายุ)` : "",
-            ].filter(Boolean)} />
+            ].filter(Boolean)}
+            onClick={p.count ? () => onDrill("Pending PR → PO", "มี PR No. แต่ยังไม่มี PO No. และยังไม่ Completed/Cancelled", p.rows) : undefined} />
           <Card label="คิวรออนุมัติ" color="var(--warning)" value={n(q.pa.count + q.po.count)}
             title={`สถานะ Pending PA/PO Approval — รอนาน = วันนี้ − วันที่ส่งอนุมัติ, "เกินกำหนด" = รอเกิน ${STUCK_APPROVAL_DAYS} วัน`}
             lines={[
               `PA ${n(q.pa.count)} · รอนานสุด ${d(q.pa.oldestDays)} · เกิน ${STUCK_APPROVAL_DAYS} วัน ${n(q.pa.stuck)}`,
               `PO ${n(q.po.count)} · รอนานสุด ${d(q.po.oldestDays)} · เกิน ${STUCK_APPROVAL_DAYS} วัน ${n(q.po.stuck)}`,
-            ]} />
+            ]}
+            onClick={(q.pa.count + q.po.count) ? () => onDrill("คิวรออนุมัติ", "สถานะ Pending PA Approval หรือ Pending PO Approval", [...q.pa.rows, ...q.po.rows]) : undefined} />
           <Card label="เวลาอนุมัติ (มัธยฐาน)" color="var(--primary)" value={d(k.approvalTime.po.medianDays)}
             title="PO: Date PO Submitted → Approved · PA: Date PA Submitted → Approved (ตัดค่าติดลบและเกิน 365 วัน)"
             lines={[
@@ -64,7 +68,8 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
             lines={[
               `เดือนก่อน ${n(k.throughput.lastMonth)}${delta === null ? "" : ` (${delta >= 0 ? "▲" : "▼"} ${Math.abs(delta)}%)`}`,
               "เดือนนี้ยังไม่จบ",
-            ]} />
+            ]}
+            onClick={k.throughput.thisMonthRows.length ? () => onDrill(`PO ที่เปิด ${k.throughput.monthLabel}`, "Date PO Submitted อยู่ในเดือนนี้", k.throughput.thisMonthRows) : undefined} />
         </div>
       </div>
 
@@ -79,7 +84,8 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
           <DataCard label="มูลค่า PO ที่ยังดำเนินอยู่" cov={k.openPo.priceCoverage}
             value={fmtBaht(k.openPo.value)} extra={k.openPo.priceCoverage.ready ? "รวม VAT 7%" : undefined}
             need="ต้องกรอก Qty และราคา/หน่วย"
-            title="ผลรวม (จำนวน × ราคา/หน่วย − ส่วนลด + VAT 7%) ของ PO ที่ยังดำเนินอยู่" />
+            title="ผลรวม (จำนวน × ราคา/หน่วย − ส่วนลด + VAT 7%) ของ PO ที่ยังดำเนินอยู่"
+            onClick={k.openPo.priceCoverage.ready ? () => onDrill("PO ที่ยังดำเนินอยู่ (มีราคา)", "มี PO No. สถานะยังไม่ปิด และมี Qty × ราคา/หน่วย", k.openPo.rows.filter((r) => (r.qty ?? 0) > 0 && (r.unitPrice ?? 0) > 0)) : undefined} />
           <DataCard label="On-Time Delivery" cov={k.onTimeDelivery.coverage}
             value={k.onTimeDelivery.pct === null ? null : `${k.onTimeDelivery.pct}%`}
             extra={k.onTimeDelivery.coverage.ready ? `ตรงเวลา ${n(k.onTimeDelivery.onTime)} จาก ${n(k.onTimeDelivery.coverage.measured)}` : undefined}
@@ -88,7 +94,8 @@ export default function TrackingKpiSection({ rows, tabs, rowsByTab, scope }: {
           <DataCard label="At-Risk / Overdue" cov={k.atRisk.coverage}
             value={n(k.atRisk.count)} extra={!k.atRisk.coverage.ready && k.atRisk.count > 0 ? `พบเลยกำหนดแล้ว ${n(k.atRisk.count)} รายการ จากที่มีข้อมูล` : undefined}
             need="ต้องกรอกวันต้องการสินค้า"
-            title="เลยวันต้องการสินค้า ยังไม่มีวันทำรับ และยังไม่ Completed/Cancelled" />
+            title="เลยวันต้องการสินค้า ยังไม่มีวันทำรับ และยังไม่ Completed/Cancelled"
+            onClick={k.atRisk.count ? () => onDrill("At-Risk / Overdue", "เลยวันต้องการสินค้า ยังไม่มีวันทำรับ และยังไม่ Completed/Cancelled", k.atRisk.rows) : undefined} />
         </div>
 
         <div style={{ marginTop: "var(--sp-4)" }}>

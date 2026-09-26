@@ -125,6 +125,10 @@ export interface TrackingRow {
    *  with their own formula, e.g. "🟢 ทันกำหนด", "🔴 เกินกำหนด PR-PO (>5 วัน)",
    *  "⚪ ยกเลิก". Not every tab has it yet — see data/trackingStatusNote.ts. */
   trackingStatus?: string;
+  /** Client-only, not from Firestore: which person's tab this row came from,
+   *  tagged in TrackingOverview so a team-wide ("ทุกคน") drill-down list can
+   *  show who each row belongs to. */
+  personName?: string;
 }
 
 export interface Tab {

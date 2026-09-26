@@ -13,6 +13,7 @@ import { parseDate, daysBetween, isPlaceholderRow } from "./data/trackingStats";
 import TrackingKpiSection from "./TrackingKpiSection";
 import TrackingBottleneckSection from "./TrackingBottleneckSection";
 import TrackingSpendSection from "./TrackingSpendSection";
+import type { DrilldownRequest } from "./TrackingDrilldownView";
 import { CYCLE_STAGES } from "./data/trackingBottleneck";
 
 /* ============================================================
@@ -132,7 +133,7 @@ function CycleTimeDrilldownModal({
   );
 }
 
-export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
+export default function TrackingOverview({ tabs, onDrill }: { tabs: Tab[]; onDrill: (r: DrilldownRequest) => void }) {
   const rawRowsByTab = useTrackingRowsByTab(tabs);
   const rowsByTab = useMemo(() => {
     const out: Record<string, TrackingRow[]> = {};
@@ -141,9 +142,13 @@ export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
   }, [rawRowsByTab]);
   const [scope, setScope] = useState<string>("all");
 
+  // Tag every row with which person's tab it came from — not stored in
+  // Firestore, just so a team-wide ("ทุกคน") drill-down list can show who
+  // each row belongs to (see TrackingDrilldownView).
   const rows = useMemo(() => {
-    if (scope === "all") return tabs.flatMap((t) => rowsByTab[t.id] ?? []);
-    return rowsByTab[scope] ?? [];
+    if (scope === "all") return tabs.flatMap((t) => (rowsByTab[t.id] ?? []).map((r) => ({ ...r, personName: t.name })));
+    const name = tabs.find((t) => t.id === scope)?.name;
+    return (rowsByTab[scope] ?? []).map((r) => ({ ...r, personName: name }));
   }, [rowsByTab, scope, tabs]);
 
   // Excludes placeholder rows (no PR/PA/PO No. at all — a reserved row
@@ -305,7 +310,8 @@ export default function TrackingOverview({ tabs }: { tabs: Tab[] }) {
         </select>
       </div>
 
-      <TrackingKpiSection rows={trackedRows} tabs={tabs} rowsByTab={rowsByTab} scope={scope} />
+      <TrackingKpiSection rows={trackedRows} tabs={tabs} rowsByTab={rowsByTab} scope={scope}
+        onDrill={(title, description, rows) => onDrill({ title, description, rows, crossPerson: scope === "all" })} />
 
       <TrackingBottleneckSection rows={trackedRows} />
 

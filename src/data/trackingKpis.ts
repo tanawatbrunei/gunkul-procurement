@@ -82,6 +82,8 @@ export interface TrackingKpis {
     value: number;
     /** Share of these rows with qty × unit price (gates whether the value is shown). */
     priceCoverage: Coverage;
+    /** The rows behind rowCount/value — for drill-down into All Rows. */
+    rows: TrackingRow[];
   };
   /** Has a PR No., no PO No., not Completed/Cancelled. */
   pendingPrToPo: {
@@ -91,15 +93,16 @@ export interface TrackingKpis {
     aging: Aging;
     /** Pending rows whose Date PR is empty/implausible (not in aging). */
     unknownAge: number;
+    rows: TrackingRow[];
   };
   /** Rows waiting on an approval, with how long they've been waiting. */
   approvalQueue: {
-    pa: { count: number; oldestDays: number | null; stuck: number };
-    po: { count: number; oldestDays: number | null; stuck: number };
+    pa: { count: number; oldestDays: number | null; stuck: number; rows: TrackingRow[] };
+    po: { count: number; oldestDays: number | null; stuck: number; rows: TrackingRow[] };
   };
   approvalTime: { pa: TurnaroundStat; po: TurnaroundStat };
   /** PO Nos. opened (Date PO Submitted) this month vs last month. */
-  throughput: { thisMonth: number; lastMonth: number; monthLabel: string };
+  throughput: { thisMonth: number; lastMonth: number; monthLabel: string; thisMonthRows: TrackingRow[] };
   onTimeDelivery: {
     pct: number | null;   // null until coverage.ready
     onTime: number;
@@ -110,6 +113,8 @@ export interface TrackingKpis {
     /** Overdue rows among those with a needed date — real count, but only headline-worthy once coverage.ready. */
     count: number;
     coverage: Coverage;   // open, undelivered rows that have a needed date
+    /** The rows counted as overdue — for drill-down into All Rows. */
+    rows: TrackingRow[];
   };
 }
 
@@ -146,19 +151,20 @@ export function computeTrackingKpis(
       const w = daysBetween(d, today);
       if (w >= 0) waits.push(w);
     }
-    return { count: waiting.length, oldestDays: waits.length ? Math.max(...waits) : null, stuck: waits.filter((w) => w > STUCK_APPROVAL_DAYS).length };
+    return { count: waiting.length, oldestDays: waits.length ? Math.max(...waits) : null, stuck: waits.filter((w) => w > STUCK_APPROVAL_DAYS).length, rows: waiting };
   };
 
   // --- Throughput: distinct PO Nos. by month of Date PO Submitted ---
   const ym = (d: Date) => d.getFullYear() * 12 + d.getMonth();
   const nowM = ym(today);
   const thisSet = new Set<string>(), lastSet = new Set<string>();
+  const thisMonthRows: TrackingRow[] = [];
   for (const r of rows) {
     if (!r.poNo?.trim()) continue;
     const d = plausibleDate(r.poSubmittedDate, today);
     if (!d) continue;
     const key = r.poNo.trim().toUpperCase();
-    if (ym(d) === nowM) thisSet.add(key);
+    if (ym(d) === nowM) { thisSet.add(key); thisMonthRows.push(r); }
     else if (ym(d) === nowM - 1) lastSet.add(key);
   }
 
@@ -176,12 +182,13 @@ export function computeTrackingKpis(
 
   // --- At-risk: open, undelivered rows; measurable only if they have a needed date ---
   const undelivered = open.filter((r) => !r.deliveredDate);
-  let withNeeded = 0, overdue = 0;
+  let withNeeded = 0;
+  const overdueRows: TrackingRow[] = [];
   for (const r of undelivered) {
     const need = plausibleDate(r.neededDate, today);
     if (!need) continue;
     withNeeded++;
-    if (need.getTime() < today.getTime()) overdue++;
+    if (need.getTime() < today.getTime()) overdueRows.push(r);
   }
 
   return {
@@ -190,6 +197,7 @@ export function computeTrackingKpis(
       rowCount: openPoRows.length,
       value: openPoRows.reduce((s, r) => s + moneyOf(r), 0),
       priceCoverage: coverage(priced, openPoRows.length),
+      rows: openPoRows,
     },
     pendingPrToPo: {
       count: pending.length,
@@ -197,6 +205,7 @@ export function computeTrackingKpis(
       hasPaNoPo: pending.filter((r) => !!r.paNo?.trim()).length,
       aging: aging(ages),
       unknownAge: pending.length - ages.length,
+      rows: pending,
     },
     approvalQueue: {
       pa: queue("Pending PA Approval", "paSubmittedDate"),
@@ -210,9 +219,10 @@ export function computeTrackingKpis(
       thisMonth: thisSet.size,
       lastMonth: lastSet.size,
       monthLabel: today.toLocaleDateString("th-TH", { month: "long", year: "numeric" }),
+      thisMonthRows,
     },
     onTimeDelivery: { pct: otdCov.ready ? Math.round((onTime / measured) * 100) : null, onTime, coverage: otdCov },
-    atRisk: { count: overdue, coverage: coverage(withNeeded, undelivered.length) },
+    atRisk: { count: overdueRows.length, coverage: coverage(withNeeded, undelivered.length), rows: overdueRows },
   };
 }
 

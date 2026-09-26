@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { IconLayoutDashboard, IconTable } from "@tabler/icons-react";
 import DashboardPage from "./Dashboard";
 import TrackingPage from "./TrackingPage";
+import TrackingDrilldownView from "./TrackingDrilldownView";
+import type { DrilldownRequest } from "./TrackingDrilldownView";
 
 export type TrackingView = "summary" | "rows";
 
@@ -19,6 +21,16 @@ export default function TrackingHub({ view, onViewChange }: { view: TrackingView
   useEffect(() => {
     setOpened((s) => (s.has(view) ? s : new Set(s).add(view)));
   }, [view]);
+
+  // Clicking a Summary card opens this instead of switching sub-tabs — it
+  // reuses the exact rows that card already filtered (see data/trackingKpis.ts),
+  // so the list can never disagree with the number that opened it. Local state,
+  // not URL-persisted: a refresh just returns to whichever sub-tab was active.
+  const [drilldown, setDrilldown] = useState<DrilldownRequest | null>(null);
+
+  if (drilldown) {
+    return <TrackingDrilldownView request={drilldown} onBack={() => setDrilldown(null)} />;
+  }
 
   return (
     <div>
@@ -42,7 +54,7 @@ export default function TrackingHub({ view, onViewChange }: { view: TrackingView
           })}
         </div>
       </div>
-      {opened.has("summary") && <div style={{ display: view === "summary" ? "block" : "none" }}><DashboardPage /></div>}
+      {opened.has("summary") && <div style={{ display: view === "summary" ? "block" : "none" }}><DashboardPage onDrill={setDrilldown} /></div>}
       {opened.has("rows") && <div style={{ display: view === "rows" ? "block" : "none" }}><TrackingPage /></div>}
     </div>
   );
