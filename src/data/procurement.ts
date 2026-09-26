@@ -83,6 +83,9 @@ export interface ItemAgg {
   totalSpend: number;
   numVendors: number;
   lastPrice: number;
+  /** Date + PO No. of the single most recent purchase across all vendors (item-level table view). */
+  lastDate: string;
+  lastPoNumber: string;
   avgPrice: number;
   minPrice: number;
   maxPrice: number;
@@ -325,7 +328,7 @@ export function aggregateItems(
     const vendors: ItemVendorStat[] = [];
     let totalQty = 0, totalSpend = 0;
     const allPrices: number[] = [];
-    let globalLast = { p: 0, d: "" };
+    let globalLast = { p: 0, d: "", po: "" };
     for (const [vendorCode, r] of vm) {
       if (!r.prices.length) continue;
       const ps = r.prices.map((x) => x.p);
@@ -357,6 +360,8 @@ export function aggregateItems(
       totalSpend,
       numVendors: vendors.length,
       lastPrice: globalLast.p,
+      lastDate: globalLast.d,
+      lastPoNumber: globalLast.po,
       avgPrice: allPrices.reduce((s, x) => s + x, 0) / allPrices.length,
       minPrice: Math.min(...allPrices),
       maxPrice: Math.max(...allPrices),

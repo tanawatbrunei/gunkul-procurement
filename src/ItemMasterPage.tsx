@@ -466,8 +466,8 @@ export default function ItemMasterPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))" }}>
-                  {["รหัส", "ชื่อสินค้า", "หมวด", "บริษัท", "Vendor", "ราคาเฉลี่ย", "ช่วงราคา", "ยอดซื้อ"].map((h, i) => (
-                    <th key={h} style={{ padding: "13px 14px", textAlign: i >= 4 ? "right" : "left", fontWeight: 700, fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
+                  {["รหัส", "ชื่อสินค้า", "PO ล่าสุด", "บริษัท", "Vendor", "ราคาซื้อล่าสุด", "วันที่ PO ออก", "ยอดซื้อ"].map((h, i) => (
+                    <th key={h} style={{ padding: "13px 14px", textAlign: i >= 5 ? "right" : "left", fontWeight: 700, fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -478,7 +478,7 @@ export default function ItemMasterPage() {
                     style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", background: hoveredId === it.itemNumber ? "var(--surface-2)" : i % 2 === 0 ? "var(--surface)" : "var(--surface-2)" }}>
                     <td style={{ padding: "13px 14px", color: "var(--text-faint)", fontWeight: 700, fontSize: "12px", whiteSpace: "nowrap" }}>{highlight(it.itemNumber, search)}</td>
                     <td style={{ padding: "13px 14px", fontWeight: 700, color: "var(--primary)", maxWidth: "300px" }}>{highlight(it.productName || it.itemNumber, search)}</td>
-                    <td style={{ padding: "13px 14px", color: "var(--text-muted)", fontSize: "12px" }}>{it.category || "-"}</td>
+                    <td style={{ padding: "13px 14px", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "nowrap" }}>{it.lastPoNumber || "-"}</td>
                     <td style={{ padding: "13px 14px" }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                         {(it.companies || []).length === 0 && <span style={{ color: "var(--text-faint)", fontSize: "12px" }}>-</span>}
@@ -487,13 +487,12 @@ export default function ItemMasterPage() {
                         ))}
                       </div>
                     </td>
-                    <td style={{ padding: "13px 14px", textAlign: "right" }}>
-                      <span style={{ background: it.numVendors > 1 ? "color-mix(in srgb, var(--success) 18%, var(--surface))" : "var(--surface-2)", color: it.numVendors > 1 ? "var(--success)" : "var(--text-faint)", padding: "2px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 800 }}>{it.numVendors}</span>
+                    <td style={{ padding: "13px 14px", maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-muted)", fontSize: "12px" }}
+                      title={it.vendors.map((v) => v.vendorName).filter(Boolean).join(", ") || "-"}>
+                      {it.vendors.map((v) => v.vendorName).filter(Boolean).join(", ") || "-"}
                     </td>
-                    <td style={{ padding: "13px 14px", textAlign: "right", fontWeight: 700, color: "var(--primary)" }}>{baht(it.avgPrice)}</td>
-                    <td style={{ padding: "13px 14px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>
-                      {it.minPrice === it.maxPrice ? "-" : `${bahtShort(it.minPrice)}–${bahtShort(it.maxPrice)}`}
-                    </td>
+                    <td style={{ padding: "13px 14px", textAlign: "right", fontWeight: 700, color: "var(--primary)" }}>{baht(it.lastPrice)}</td>
+                    <td style={{ padding: "13px 14px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", whiteSpace: "nowrap" }}>{it.lastDate || "-"}</td>
                     <td style={{ padding: "13px 14px", textAlign: "right", color: "var(--text-muted)" }}>{bahtShort(it.totalSpend)}</td>
                   </tr>
                 ))}
