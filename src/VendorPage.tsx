@@ -6,7 +6,7 @@ import { db } from "./firebase";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, AreaChart, Area, CartesianGrid,
+  AreaChart, Area, CartesianGrid,
 } from "recharts";
 import {
   IconX, IconCircleCheck, IconCircleX, IconPlayerPauseFilled, IconAddressBook,
@@ -203,21 +203,45 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
     return [...map.values()].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   }, [poLines]);
 
-  const catData = useMemo(() =>
-    Object.entries(vendor.categorySpend || {})
-      .map(([name, value]) => ({ name, value: Math.max(value, 0) }))
-      .filter(d => d.value > 0).sort((a, b) => b.value - a.value),
+  // Top 10 parts by number of times ordered (count of PO lines), not by value —
+  // more useful than a category breakdown for spotting recurring/core items.
+  const itemFreqData = useMemo(() => {
+    if (!poLines) return [];
+    const counts = new Map<string, { name: string; count: number; amount: number }>();
+    for (const l of poLines) {
+      // Skip lines with no identifying name/category at all — lumping every
+      // "unspecified" line into one bucket would just drown out real parts.
+      if (!l.itemNumber && !l.productName && !l.category) continue;
+      const key = l.itemNumber || l.productName || l.category;
+      const name = l.productName || l.category || key;
+      let e = counts.get(key);
+      if (!e) { e = { name, count: 0, amount: 0 }; counts.set(key, e); }
+      e.count += 1;
+      if (countsAsSpend(l.status)) e.amount += l.amountTHB;
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+  }, [poLines]);
+
+  const monthDataAll = useMemo(() =>
+    Object.entries(vendor.monthlySpend || {}).sort((a, b) => a[0].localeCompare(b[0])),
     [vendor]);
   const monthData = useMemo(() =>
-    Object.entries(vendor.monthlySpend || {}).sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([ym, v]) => ({ m: monthLabel(ym), v })),
-    [vendor]);
+    monthDataAll.slice(-6).map(([ym, v]) => ({ m: monthLabel(ym), v })),
+    [monthDataAll]);
+  // Rolling YoY: last 12 months of spend vs the 12 months before that.
+  const yoy = useMemo(() => {
+    if (monthDataAll.length < 13) return null;
+    const recent = monthDataAll.slice(-12).reduce((s, [, v]) => s + v, 0);
+    const prior = monthDataAll.slice(-24, -12).reduce((s, [, v]) => s + v, 0);
+    if (prior <= 0) return null;
+    return ((recent - prior) / prior) * 100;
+  }, [monthDataAll]);
 
   return (
     <div style={asPage ? undefined : { position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }} onClick={asPage ? undefined : onClose}>
       <div style={asPage
         ? { background: "var(--surface)", borderRadius: "24px", boxShadow: "var(--shadow-lg)", overflow: "hidden" }
-        : { background: "var(--surface)", borderRadius: "24px", width: "600px", maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }} onClick={e => e.stopPropagation()}>
+        : { background: "var(--surface)", borderRadius: "24px", width: "960px", maxWidth: "94vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }} onClick={e => e.stopPropagation()}>
         <div style={{ background: "linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%)", padding: "30px 32px", borderRadius: "24px 24px 0 0", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(226,201,126,0.12)" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
@@ -248,13 +272,18 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
         <div style={{ padding: "26px 32px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "22px" }}>
             {[
-              { label: "ยอดซื้อสะสม", value: bahtFull(vendor.totalSpend) },
+              { label: "ยอดซื้อสะสม", value: bahtFull(vendor.totalSpend), sub: yoy },
               { label: "จำนวน PO", value: vendor.numPOs?.toLocaleString() },
               { label: "ซื้อล่าสุด", value: vendor.lastPurchase },
             ].map(s => (
               <div key={s.label} style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "14px", textAlign: "center", border: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: "700" }}>{s.label}</p>
                 <p style={{ margin: 0, fontSize: "15px", color: "var(--primary)", fontWeight: "800" }}>{s.value}</p>
+                {s.sub != null && (
+                  <p style={{ margin: "3px 0 0", fontSize: "10px", fontWeight: "700", color: s.sub >= 0 ? "var(--success)" : "var(--danger)" }}>
+                    {s.sub >= 0 ? "▲" : "▼"} {Math.abs(s.sub).toFixed(1)}% YoY
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -291,33 +320,26 @@ function VendorDetailModal({ vendor, asPage, onClose, onDelete, onToggleStatus, 
             </button>
           </div>
 
-          {catData.length > 0 && (
+          {(itemFreqData.length > 0 || monthData.length > 1) && (
             <div style={{ display: "grid", gridTemplateColumns: monthData.length > 1 ? "1fr 1fr" : "1fr", gap: "16px", marginBottom: "22px" }}>
-              <div style={{ background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
-                <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "var(--primary)" }}>ยอดซื้อแยกหมวด</p>
-                <ResponsiveContainer width="100%" height={150}>
-                  <PieChart>
-                    <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={32} outerRadius={60} paddingAngle={2}>
-                      {catData.map((d, i) => <Cell key={i} fill={catColor(d.name).color} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => bahtFull(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "6px" }}>
-                  {catData.slice(0, 4).map(d => (
-                    <div key={d.name} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-muted)" }}>
-                        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: catColor(d.name).color }} />{d.name}
-                      </span>
-                      <strong style={{ color: "var(--primary)" }}>{bahtShort(d.value)}</strong>
-                    </div>
-                  ))}
+              {itemFreqData.length > 0 && (
+                <div style={{ background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
+                  <p style={{ margin: "0 0 2px", fontSize: "12px", fontWeight: "800", color: "var(--primary)" }}>Top 10 พาร์ทที่สั่งซื้อบ่อยที่สุด</p>
+                  <p style={{ margin: "0 0 10px", fontSize: "10px", color: "var(--text-faint)" }}>เรียงตามจำนวนครั้งที่สั่งซื้อ</p>
+                  <ResponsiveContainer width="100%" height={230}>
+                    <BarChart data={itemFreqData} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 8 }}>
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "var(--text-muted)" }} width={140} tickFormatter={(v: string) => v.length > 22 ? v.slice(0, 22) + "…" : v} />
+                      <Tooltip formatter={(v: any, _n: any, p: any) => [`${v} ครั้ง (${bahtFull(p.payload.amount)})`, "สั่งซื้อ"]} />
+                      <Bar dataKey="count" radius={[0, 6, 6, 0]} fill="var(--primary)" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              </div>
+              )}
               {monthData.length > 1 && (
                 <div style={{ background: "var(--surface-2)", borderRadius: "14px", padding: "16px" }}>
-                  <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "var(--primary)" }}>ยอดซื้อรายเดือน</p>
-                  <ResponsiveContainer width="100%" height={170}>
+                  <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: "800", color: "var(--primary)" }}>ยอดซื้อรายเดือน (6 เดือนล่าสุด)</p>
+                  <ResponsiveContainer width="100%" height={230}>
                     <AreaChart data={monthData} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
                       <defs>
                         <linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
@@ -459,6 +481,14 @@ export default function VendorPage({ routeVendorCode }: { routeVendorCode?: stri
   const [showCharts, setShowCharts] = useState(true);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [allCompanyCodes, setAllCompanyCodes] = useState<string[]>([]);
+
+  useEffect(() => {
+    return onSnapshot(doc(db, "meta", "companyUpdates"), (snap) => {
+      const data = snap.data() as { updates?: Record<string, string> } | undefined;
+      setAllCompanyCodes(Object.keys(data?.updates ?? {}));
+    });
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "vendors"), (snap) => {
@@ -484,10 +514,14 @@ export default function VendorPage({ routeVendorCode }: { routeVendorCode?: stri
     return () => unsub();
   }, []);
 
+  // Overview charts react to the company selected up top — "ทั้งหมด" keeps
+  // the group-wide view, picking a company (GSC/GUE/GKE/...) recomputes every
+  // chart from just that company's vendors.
   const overview = useMemo(() => {
+    const scoped = filterCompany === "ทั้งหมด" ? vendors : vendors.filter(v => (v.companies || []).includes(filterCompany));
     const cat: Record<string, number> = {};
     const mon: Record<string, number> = {};
-    for (const v of vendors) {
+    for (const v of scoped) {
       for (const [k, val] of Object.entries(v.categorySpend || {})) cat[k] = (cat[k] || 0) + val;
       for (const [k, val] of Object.entries(v.monthlySpend || {})) mon[k] = (mon[k] || 0) + val;
     }
@@ -497,15 +531,35 @@ export default function VendorPage({ routeVendorCode }: { routeVendorCode?: stri
       .filter(([ym]) => ym >= "2025-01") // start the chart at Jan 2025 (2568) — older months are noise, mostly empty
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([ym, v]) => ({ m: monthLabel(ym), v }));
-    const topVendors = [...vendors].sort((a, b) => b.totalSpend - a.totalSpend).slice(0, 10)
+    const topVendors = [...scoped].sort((a, b) => b.totalSpend - a.totalSpend).slice(0, 10)
       .map(v => ({ name: v.name.replace(/^บจก\.|^บมจ\.|^หจก\./, "").trim().slice(0, 18), value: v.totalSpend }));
     return { catData, monData, topVendors };
-  }, [vendors]);
+  }, [vendors, filterCompany]);
 
   const companyOptions = useMemo(() => {
     const set = new Set<string>();
     for (const v of vendors) for (const c of v.companies || []) set.add(c);
     return ["ทั้งหมด", ...[...set].sort()];
+  }, [vendors]);
+
+  // Quick company chips — one click per company (GSC/GUE/GKE/...) instead of
+  // opening the "บริษัท" dropdown. Always show every company GUNKUL has ever
+  // imported PO data for (from meta/companyUpdates), even ones with 0 vendors
+  // tagged so far, unioned with any company codes seen only on vendors.
+  const quickCompanies = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const code of allCompanyCodes) counts[code] = 0;
+    for (const v of vendors) for (const c of v.companies || []) counts[c] = (counts[c] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([c]) => c);
+  }, [vendors, allCompanyCodes]);
+
+  // Quick category chips — the categories most vendors are tagged with, so
+  // finding vendors "by category" is one click instead of digging through the
+  // 31-option dropdown.
+  const quickCategories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const v of vendors) for (const c of v.categories || []) counts[c] = (counts[c] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([c]) => c);
   }, [vendors]);
 
   const filtered = vendors.filter(v => {
@@ -662,12 +716,30 @@ export default function VendorPage({ routeVendorCode }: { routeVendorCode?: stri
         </div>
       </div>
 
+      {/* COMPANY TABS — pick a company to scope both the charts below and the vendor list to it */}
+      <div style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 10, boxShadow: "var(--shadow-sm)" }}>
+        <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 24px", display: "flex", gap: "4px", overflowX: "auto" }}>
+          {["ทั้งหมด", ...quickCompanies].map(c => {
+            const on = filterCompany === c;
+            return (
+              <button key={c} onClick={() => setFilterCompany(c)} style={{
+                padding: "14px 18px", background: "none", border: "none", borderBottom: on ? "3px solid var(--accent)" : "3px solid transparent",
+                color: on ? "var(--primary)" : "var(--text-faint)", fontWeight: on ? "800" : "700", fontSize: "14px", cursor: "pointer", whiteSpace: "nowrap",
+              }}>{c}</button>
+            );
+          })}
+        </div>
+      </div>
+
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 24px" }}>
         {/* OVERVIEW CHARTS */}
         {!loading && vendors.length > 0 && (
           <div style={{ marginBottom: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "var(--primary)", display: "flex", alignItems: "center", gap: "8px" }}><IconFileSpreadsheet size={19} stroke={1.75} /> ภาพรวมการจัดซื้อ</h2>
+              <h2 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "var(--primary)", display: "flex", alignItems: "center", gap: "8px" }}>
+                <IconFileSpreadsheet size={19} stroke={1.75} /> ภาพรวมการจัดซื้อ
+                {filterCompany !== "ทั้งหมด" && <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 15%, var(--surface))", padding: "2px 10px", borderRadius: "999px" }}>{filterCompany}</span>}
+              </h2>
               <button onClick={() => setShowCharts(s => !s)} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "6px 14px", cursor: "pointer", fontSize: "13px", fontWeight: "700", color: "var(--text-muted)" }}>{showCharts ? "ซ่อน ▲" : "แสดง ▼"}</button>
             </div>
             {showCharts && (
@@ -720,17 +792,31 @@ export default function VendorPage({ routeVendorCode }: { routeVendorCode?: stri
 
         {/* FILTERS */}
         <div style={{ background: "var(--surface)", borderRadius: "20px", padding: "22px", boxShadow: "var(--shadow)", marginBottom: "22px", border: "1px solid rgba(226,201,126,0.2)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", alignItems: "end" }}>
-            <div style={{ gridColumn: "span 2", minWidth: "220px" }}>
-              <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: "700", color: "var(--text-faint)" }}>ค้นหา</label>
-              <div style={{ position: "relative" }}>
-                <IconSearch size={15} stroke={2} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--navy)" }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ชื่อบริษัท, รหัส, หมวดหมู่..."
-                  style={{ width: "100%", padding: "11px 14px 11px 34px", borderRadius: "10px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "var(--bg-elevated)", color: "var(--primary)" }}
-                  onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
-                  onBlur={e => { e.target.style.borderColor = "var(--accent-soft)"; }} />
-              </div>
+          {/* PRIMARY SEARCH — the main way to find a vendor on this page, so it gets top billing */}
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ position: "relative" }}>
+              <IconSearch size={19} stroke={2} style={{ position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", color: "var(--navy)" }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหา Vendor — ชื่อบริษัท, รหัส, หมวดหมู่, ผู้ติดต่อ..."
+                style={{ width: "100%", padding: "16px 18px 16px 48px", borderRadius: "14px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "16px", fontWeight: 600, outline: "none", background: "var(--bg-elevated)", color: "var(--primary)" }}
+                onFocus={e => { e.target.style.borderColor = "var(--navy)"; }}
+                onBlur={e => { e.target.style.borderColor = "var(--accent-soft)"; }} />
             </div>
+            {/* Quick category chips — one click to filter "by category" instead of digging through the dropdown below */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "10px" }}>
+              <span style={{ fontSize: "11px", color: "var(--text-faint)", fontWeight: 700, alignSelf: "center", marginRight: "2px" }}>หมวดหมู่ยอดนิยม:</span>
+              {quickCategories.map(c => {
+                const cc = catColor(c); const on = filterCategory === c;
+                return (
+                  <button key={c} onClick={() => setFilterCategory(on ? "ทั้งหมด" : c)} style={{
+                    padding: "3px 11px", borderRadius: "999px", fontSize: "11px", fontWeight: "700", cursor: "pointer",
+                    border: on ? `2px solid ${cc.color}` : "1.5px solid transparent",
+                    background: cc.bg, color: cc.color,
+                  }}>{c}</button>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", alignItems: "end" }}>
             {[
               { label: "บริษัท", value: filterCompany, setter: setFilterCompany, options: companyOptions },
               { label: "หมวดหมู่", value: filterCategory, setter: setFilterCategory, options: ["ทั้งหมด", ...CATEGORIES] },

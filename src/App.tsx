@@ -1,22 +1,35 @@
-import VendorPage from "./VendorPage";
-import TrackingPage from "./TrackingPage";
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { auth } from "./firebase";
-import DashboardPage from "./Dashboard";
-import KnowledgePage from "./KnowledgePage";
-import ESGPage from "./ESGPage";
-import OrgChartPage from "./OrgChartPage";
+import type { TrackingView } from "./TrackingHub";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
-import ProjectPage from "./ProjectPage";
-import ItemMasterPage from "./ItemMasterPage";
-import UsersPage from "./UsersPage";
 import { AccessProvider, useAccessCheck } from "./access";
 import { CheckingScreen, VerifyEmailScreen, NotAllowedScreen } from "./components/AccessGate";
 import Sidebar from "./Sidebar";
 import type { Page } from "./Sidebar";
+
+// Code-split every page except Home (always in `visited` from the start, so
+// there's nothing to gain from splitting it) and Login (needed before the
+// auth gate even resolves). Each page's chunk is fetched the first time its
+// `visited` entry is added — same "once per session" spirit as the
+// Firestore-read comment below, just for JS instead of reads. See CLAUDE.md
+// gotchas (bundle size).
+const ProjectPage = lazy(() => import("./ProjectPage"));
+const VendorPage = lazy(() => import("./VendorPage"));
+const ItemMasterPage = lazy(() => import("./ItemMasterPage"));
+const TrackingHub = lazy(() => import("./TrackingHub"));
+const OrgChartPage = lazy(() => import("./OrgChartPage"));
+const KnowledgePage = lazy(() => import("./KnowledgePage"));
+const ESGPage = lazy(() => import("./ESGPage"));
+const UsersPage = lazy(() => import("./UsersPage"));
+
+const pageLoadingFallback = (
+  <div style={{ padding: "var(--sp-7) var(--sp-5)", color: "var(--text-faint)", fontSize: "var(--fs-sm)" }}>
+    กำลังโหลด...
+  </div>
+);
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -27,8 +40,16 @@ export default function App() {
   // per session on first visit, rather than re-reading it on every navigation —
   // a big cut in Firestore reads for a team that hops between pages all day.
   const [visited, setVisited] = useState<Set<Page>>(() => new Set<Page>(["home"]));
+  // Tracking & Dashboard is one page with two sub-tabs; the choice lives in the
+  // URL (#/tracking/summary | #/tracking/rows) so a refresh or shared link keeps it.
+  const [trackingView, setTrackingViewState] = useState<TrackingView>("summary");
+  const setTrackingView = (v: TrackingView) => {
+    setTrackingViewState(v);
+    history.replaceState(null, "", `${location.pathname}${location.search}#/tracking/${v}`);
+  };
   const navigate = (p: Page) => {
-    if (location.hash.startsWith("#/vendor")) history.replaceState(null, "", location.pathname + location.search);
+    if (p === "tracking") history.replaceState(null, "", `${location.pathname}${location.search}#/tracking/${trackingView}`);
+    else if (location.hash.startsWith("#/vendor") || location.hash.startsWith("#/tracking")) history.replaceState(null, "", location.pathname + location.search);
     vendorCodeRef.current = null;
     setVendorCode(null);
     setVisited((v) => (v.has(p) ? v : new Set(v).add(p)));
@@ -47,6 +68,12 @@ export default function App() {
 
   useEffect(() => {
     const apply = () => {
+      const t = location.hash.match(/^#\/tracking(?:\/(summary|rows))?$/);
+      if (t) {
+        if (t[1]) setTrackingViewState(t[1] as TrackingView);
+        show("tracking");
+        return;
+      }
       const m = location.hash.match(/^#\/vendor(?:\/(.+))?$/);
       if (m) {
         if (currentPageRef.current !== "vendor") returnPageRef.current = currentPageRef.current;
@@ -110,15 +137,16 @@ export default function App() {
       <main style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1 }}>
           {visited.has("home") && <div style={pageStyle("home")}><HomePage setPage={navigate} /></div>}
-          {visited.has("dashboard") && <div style={pageStyle("dashboard")}><DashboardPage /></div>}
-          {visited.has("project") && <div style={pageStyle("project")}><ProjectPage /></div>}
-          {visited.has("vendor") && <div style={pageStyle("vendor")}><VendorPage routeVendorCode={vendorCode} /></div>}
-          {visited.has("itemmaster") && <div style={pageStyle("itemmaster")}><ItemMasterPage /></div>}
-          {visited.has("tracking") && <div style={pageStyle("tracking")}><TrackingPage /></div>}
-          {visited.has("team") && <div style={pageStyle("team")}><OrgChartPage /></div>}
-          {visited.has("knowledge") && <div style={pageStyle("knowledge")}><KnowledgePage /></div>}
-          {visited.has("esg") && <div style={pageStyle("esg")}><ESGPage /></div>}
-          {isAdmin && visited.has("users") && <div style={pageStyle("users")}><UsersPage /></div>}
+          <Suspense fallback={pageLoadingFallback}>
+            {visited.has("project") && <div style={pageStyle("project")}><ProjectPage /></div>}
+            {visited.has("vendor") && <div style={pageStyle("vendor")}><VendorPage routeVendorCode={vendorCode} /></div>}
+            {visited.has("itemmaster") && <div style={pageStyle("itemmaster")}><ItemMasterPage /></div>}
+            {visited.has("tracking") && <div style={pageStyle("tracking")}><TrackingHub view={trackingView} onViewChange={setTrackingView} /></div>}
+            {visited.has("team") && <div style={pageStyle("team")}><OrgChartPage /></div>}
+            {visited.has("knowledge") && <div style={pageStyle("knowledge")}><KnowledgePage /></div>}
+            {visited.has("esg") && <div style={pageStyle("esg")}><ESGPage /></div>}
+            {isAdmin && visited.has("users") && <div style={pageStyle("users")}><UsersPage /></div>}
+          </Suspense>
         </div>
         <footer
           style={{

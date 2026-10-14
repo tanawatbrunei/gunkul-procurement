@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import {
-  IconX, IconBulb, IconChartLine, IconClock, IconPackage, IconSearch,
+  IconX, IconChartLine, IconClock, IconPackage, IconSearch,
   IconScale, IconTag, IconUpload,
 } from "@tabler/icons-react";
 import { db } from "./firebase";
@@ -13,17 +13,32 @@ import type { ItemAgg, ItemVendorStat, PricePoint, ImportHistoryEntry } from "./
 import ImportModal from "./components/ImportModal";
 import CompanyUpdates from "./components/CompanyUpdates";
 
-type SortKey = "spend" | "vendors" | "name" | "qty";
+type SortKey = "spend" | "vendors" | "name" | "qty" | "variance" | "price";
+type QuickFilter = "all" | "multi" | "variance";
 
-function baht(n: number) {
-  return "฿" + (n || 0).toLocaleString("th-TH", { maximumFractionDigits: 0 });
-}
-function bahtShort(n: number) {
-  const v = n || 0;
-  if (Math.abs(v) >= 1_000_000) return "฿" + (v / 1_000_000).toFixed(1) + "M";
-  if (Math.abs(v) >= 1_000) return "฿" + (v / 1_000).toFixed(0) + "K";
-  return "฿" + v.toFixed(0);
-}
+/** Master switch for every price figure on this page (unit price, variance,
+ *  lowest/highest badges, price chart). Prices were hidden for a presentation
+ *  and are shown again on request — flip to false to hide them all at once. */
+const SHOW_PRICES = true;
+/** An item counts as a "high price variance" above this spread (max vs min, %). */
+const HIGH_VARIANCE_PCT = 10;
+// All price data on this page is THB only: aggregateItems/fetchItemPriceHistory
+// drop non-THB lines so every comparison is like-for-like.
+const CURRENCY = "THB";
+
+const baht = (n: number) => "฿" + (n || 0).toLocaleString("th-TH", { maximumFractionDigits: 2 });
+/** Spread of min→max price as a percentage of the min (0 when not comparable). */
+const variancePct = (min: number, max: number) => (min > 0 && max > min ? ((max - min) / min) * 100 : 0);
+/** "+12%"; absurd spreads (usually a mistyped ฿1 price in the source data) are capped so they don't blow out the column. */
+const fmtPct = (v: number) => (v > 999 ? ">+999%" : `+${v.toFixed(0)}%`);
+const itemVariance = (it: ItemAgg) => variancePct(it.minPrice, it.maxPrice);
+const normKey = (t: string) => t.toLowerCase().replace(/[^0-9a-z\u0E00-\u0E7F]+/g, "");
+
+// Price history is one Firestore query per item — keep it for the session so
+// re-opening the same item (or its vendor "ประวัติ" rows) costs no extra reads.
+const historyCache = new Map<string, Map<string, PricePoint[]>>();
+const VENDOR_COLORS = ["#7CA6D8", "#E58E7A", "#8FCBAE", "#D6B8E0", "#F4D58D", "#9AD0D6", "#C9B7A0", "#A8B8D8"];
+
 function highlight(text: string, search: string) {
   if (!search || !text) return <span>{text}</span>;
   const parts = text.split(new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
@@ -31,52 +46,14 @@ function highlight(text: string, search: string) {
     ? <mark key={i} style={{ background: "var(--accent-soft)", borderRadius: "2px", padding: "0 2px", color: "var(--navy)" }}>{p}</mark> : p)}</span>;
 }
 
-function spread(it: ItemAgg): number {
-  return it.minPrice > 0 ? (it.maxPrice - it.minPrice) / it.minPrice : 0;
-}
 
-function HistoryTooltip({ active, payload }: { active?: boolean; payload?: { payload: PricePoint }[] }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div style={{ background: "var(--surface)", borderRadius: "10px", border: "1px solid var(--border)", fontSize: "12px", padding: "8px 12px" }}>
-      <p style={{ margin: "0 0 3px", color: "var(--text-faint)" }}>วันที่ {p.date}</p>
-      <p style={{ margin: "0 0 3px", fontWeight: 800, color: "var(--primary)" }}>{baht(p.price)}</p>
-      <p style={{ margin: 0, color: "var(--text-muted)", fontFamily: "monospace" }}>PO: {p.poNumber || "-"}</p>
-    </div>
-  );
-}
-
-function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: string }) {
-  const perUnit = unit ? `บาท/${unit}` : "บาท/หน่วย";
+function PurchaseHistoryTable({ points, unit }: { points: PricePoint[]; unit: string }) {
   const newestFirst = [...points].sort((a, b) => (a.date < b.date ? 1 : -1));
   return (
     <div style={{ marginTop: "8px" }}>
-      {points.length < 2 ? (
-        <p style={{ margin: "0 0 4px", fontSize: "12px", color: "var(--text-faint)" }}>
-          ℹ️ มีประวัติการซื้อเพียง {points.length} ครั้ง — ยังไม่พอวาดกราฟแนวโน้มราคา
-        </p>
-      ) : (
+      {points.length > 0 ? (
         <>
           <p style={{ margin: "0 0 6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
-            แนวโน้มราคาซื้อ ({perUnit}) — แกนX: วันที่ซื้อ
-          </p>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={points} margin={{ top: 8, right: 18, bottom: 4, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
-              <YAxis tick={{ fontSize: 10, fill: "var(--text-faint)" }} width={58} tickFormatter={(v) => bahtShort(Number(v))} />
-              <Tooltip content={<HistoryTooltip />} />
-              <Line type="linear" dataKey="price" stroke="var(--primary-hover)" strokeWidth={2}
-                dot={{ r: 3, fill: "var(--primary-hover)" }} activeDot={{ r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </>
-      )}
-
-      {points.length > 0 && (
-        <>
-          <p style={{ margin: "12px 0 6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
             อ้างอิงเลข PO ต่อครั้งที่ซื้อ (ใหม่สุดก่อน)
           </p>
           <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
@@ -87,42 +64,101 @@ function PriceHistoryChart({ points, unit }: { points: PricePoint[]; unit: strin
                     <td style={{ padding: "6px 10px", color: "var(--text-faint)", whiteSpace: "nowrap" }}>{p.date}</td>
                     <td style={{ padding: "6px 10px", color: "var(--primary)", fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap", userSelect: "all" }}>{p.poNumber || "-"}</td>
                     <td style={{ padding: "6px 10px", textAlign: "right", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{p.qty ? `${p.qty.toLocaleString()} ${unit}` : ""}</td>
-                    <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap" }}>{baht(p.price)}</td>
+                    {SHOW_PRICES && <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "var(--primary)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{baht(p.price)}</td>}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </>
+      ) : (
+        <p style={{ margin: 0, fontSize: "12px", color: "var(--text-faint)" }}>ไม่มีประวัติการซื้อ</p>
       )}
     </div>
   );
 }
 
-function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void }) {
-  const vendors: ItemVendorStat[] = [...item.vendors].sort((a, b) => a.lastPrice - b.lastPrice);
-  const cheapest = vendors[0]?.vendorCode;
-  const unitLabel = item.unit ? `บาท/${item.unit}` : "บาท/หน่วย";
+/** Mini price-over-time chart: one line per vendor, x = PO date. */
+function PriceTrendChart({ history, vendors }: { history: Map<string, PricePoint[]>; vendors: ItemVendorStat[] }) {
+  const { data, lines, total } = useMemo(() => {
+    const lines = vendors.filter((v) => (history.get(v.vendorCode)?.length ?? 0) > 0)
+      .map((v, i) => ({ code: v.vendorCode, name: v.vendorName || v.vendorCode, color: VENDOR_COLORS[i % VENDOR_COLORS.length] }));
+    const byDate = new Map<string, Record<string, number | string>>();
+    let total = 0;
+    for (const l of lines) {
+      for (const p of history.get(l.code) ?? []) {
+        total++;
+        const row = byDate.get(p.date) ?? { date: p.date };
+        row[l.code] = p.price; // same vendor, same date: the later PO wins
+        byDate.set(p.date, row);
+      }
+    }
+    return { data: [...byDate.values()].sort((a, b) => (a.date as string < (b.date as string) ? -1 : 1)), lines, total };
+  }, [history, vendors]);
 
-  const [history, setHistory] = useState<Map<string, PricePoint[]> | null>(null);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  return (
+    <div style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "12px 14px", marginBottom: "18px" }}>
+      <p style={{ margin: "0 0 6px", fontSize: "12px", fontWeight: 800, color: "var(--primary)" }}>แนวโน้มราคาต่อหน่วยย้อนหลัง (ตาม PO Date)</p>
+      {total < 2 ? (
+        <p style={{ margin: 0, fontSize: "12px", color: "var(--text-faint)" }}>มีประวัติการซื้อเพียง {total} ครั้ง — ยังไม่พอวาดกราฟแนวโน้ม</p>
+      ) : (
+        <ResponsiveContainer width="100%" height={170}>
+          <LineChart data={data} margin={{ top: 6, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--text-faint)" }} />
+            <YAxis tick={{ fontSize: 10, fill: "var(--text-faint)" }} width={56} domain={["auto", "auto"]} tickFormatter={(v) => Number(v).toLocaleString("th-TH")} />
+            <Tooltip formatter={(v, name) => [baht(Number(v)), String(name)]} />
+            {lines.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
+            {lines.map((l) => (
+              <Line key={l.code} type="linear" dataKey={l.code} name={l.name} stroke={l.color} strokeWidth={2} connectNulls dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+function PriceBadge({ kind }: { kind: "low" | "high" }) {
+  const c = kind === "low" ? "var(--success)" : "var(--danger)";
+  return (
+    <span style={{
+      display: "inline-block", marginRight: 6, fontSize: "9px", fontWeight: 800, padding: "1px 7px", borderRadius: "999px", whiteSpace: "nowrap",
+      color: c, background: `color-mix(in srgb, ${c} 15%, transparent)`, border: `1px solid color-mix(in srgb, ${c} 40%, transparent)`,
+    }}>{kind === "low" ? "🟢 Lowest Price" : "🔴 Highest Price"}</span>
+  );
+}
+
+function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void }) {
+  // Cheapest (latest price) first, so the comparison reads top-down.
+  const vendors: ItemVendorStat[] = useMemo(() => [...item.vendors].sort((a, b) => a.lastPrice - b.lastPrice), [item]);
+  const lowest = vendors[0];
+  const highest = vendors[vendors.length - 1];
+  const comparable = vendors.length > 1 && highest.lastPrice > lowest.lastPrice;
+  const spreadPct = comparable ? variancePct(lowest.lastPrice, highest.lastPrice) : 0;
+
+  const [history, setHistory] = useState<Map<string, PricePoint[]> | null>(() => historyCache.get(item.itemNumber) ?? null);
   const [openVendor, setOpenVendor] = useState<string | null>(null);
 
-  function toggleHistory(vendorCode: string) {
-    if (openVendor === vendorCode) { setOpenVendor(null); return; }
-    setOpenVendor(vendorCode);
-    if (!history && !loadingHistory) {
-      setLoadingHistory(true);
-      fetchItemPriceHistory(item.itemNumber)
-        .then((h) => setHistory(h))
-        .catch((e) => { console.error("price history error:", e); setHistory(new Map()); })
-        .finally(() => setLoadingHistory(false));
-    }
-  }
+  // Loaded on open (it feeds the trend chart); cached for the session.
+  useEffect(() => {
+    if (!SHOW_PRICES && history) return;
+    if (historyCache.has(item.itemNumber)) { setHistory(historyCache.get(item.itemNumber)!); return; }
+    let alive = true;
+    fetchItemPriceHistory(item.itemNumber)
+      .then((h) => { historyCache.set(item.itemNumber, h); if (alive) setHistory(h); })
+      .catch((e) => { console.error("price history error:", e); if (alive) setHistory(new Map()); });
+    return () => { alive = false; };
+  }, [item.itemNumber]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const colCount = SHOW_PRICES ? 7 : 5;
+  const heads = SHOW_PRICES
+    ? ["Vendor", "ราคาต่อหน่วย", "สกุลเงิน", "ซื้อล่าสุด", "PO ล่าสุด", "จำนวนซื้อ", ""]
+    : ["Vendor", "ซื้อล่าสุด", "PO ล่าสุด", "จำนวนซื้อ", ""];
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: "22px", width: "720px", maxWidth: "95vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--surface)", borderRadius: "22px", width: "820px", maxWidth: "95vw", maxHeight: "92vh", overflowY: "auto", boxShadow: "var(--shadow-lg)" }}>
         <div style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))", padding: "26px 30px", borderRadius: "22px 22px 0 0", position: "relative" }}>
           <button onClick={onClose} style={{ position: "absolute", top: "20px", right: "22px", background: "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: "34px", height: "34px", cursor: "pointer", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}><IconX size={18} stroke={2} /></button>
           <p style={{ margin: "0 0 4px", color: "rgba(226,201,126,0.9)", fontSize: "12px", fontWeight: 700 }}>{item.itemNumber} · {item.category || "ไม่ระบุหมวด"}{item.unit ? ` · หน่วย: ${item.unit}` : ""}</p>
@@ -137,75 +173,82 @@ function ItemDetailModal({ item, onClose }: { item: ItemAgg; onClose: () => void
         </div>
 
         <div style={{ padding: "24px 30px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "22px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${SHOW_PRICES ? 4 : 1}, 1fr)`, gap: "10px", marginBottom: "18px" }}>
             {[
-              { label: "Vendor ที่ขาย", value: item.numVendors.toLocaleString() },
-              { label: `ราคาต่ำสุด (${unitLabel})`, value: baht(item.minPrice) },
-              { label: `ราคาเฉลี่ย (${unitLabel})`, value: baht(item.avgPrice) },
-              { label: `ราคาสูงสุด (${unitLabel})`, value: baht(item.maxPrice) },
-            ].map((s) => (
-              <div key={s.label} style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "13px", textAlign: "center", border: "1px solid var(--border)" }}>
-                <p style={{ margin: "0 0 4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: 700 }}>{s.label}</p>
-                <p style={{ margin: 0, fontSize: "15px", color: "var(--primary)", fontWeight: 800 }}>{s.value}</p>
+              { label: "Vendor ที่ขาย", value: item.numVendors.toLocaleString(), color: "var(--primary)" },
+              ...(SHOW_PRICES ? [
+                { label: "ราคาต่ำสุด (ล่าสุด)", value: baht(lowest.lastPrice), color: "var(--success)" },
+                { label: "ราคาสูงสุด (ล่าสุด)", value: comparable ? baht(highest.lastPrice) : "—", color: "var(--danger)" },
+                { label: "ส่วนต่างราคา", value: comparable ? fmtPct(spreadPct) : "—", color: "var(--warning)" },
+              ] : []),
+            ].map((c) => (
+              <div key={c.label} style={{ background: "var(--surface-2)", borderRadius: "12px", padding: "12px", textAlign: "center", border: "1px solid var(--border)" }}>
+                <p style={{ margin: "0 0 4px", fontSize: "10px", color: "var(--text-faint)", fontWeight: 700 }}>{c.label}</p>
+                <p style={{ margin: 0, fontSize: "15px", color: c.color, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{c.value}</p>
               </div>
             ))}
           </div>
 
-          {spread(item) > 0.001 && (
-            <div style={{ margin: "0 0 16px", fontSize: "13px", color: "var(--text-muted)", background: "color-mix(in srgb, var(--warning) 12%, var(--surface))", border: "1px solid color-mix(in srgb, var(--warning) 40%, var(--surface))", borderRadius: "10px", padding: "10px 14px", display: "flex", alignItems: "flex-start", gap: "8px" }}>
-              <IconBulb size={16} stroke={1.75} style={{ flexShrink: 0, marginTop: "1px", color: "var(--warning)" }} />
-              <span>ส่วนต่างราคาต่ำสุด–สูงสุด <strong style={{ color: "var(--warning)" }}>{(spread(item) * 100).toFixed(0)}%</strong>
-              {" "}— เลือก vendor ที่ถูกที่สุดประหยัดได้ <strong style={{ color: "var(--success)" }}>{baht(item.maxPrice - item.minPrice)}</strong>/หน่วย</span>
-            </div>
-          )}
+          {SHOW_PRICES && (history
+            ? <PriceTrendChart history={history} vendors={vendors} />
+            : <p style={{ margin: "0 0 18px", fontSize: "12px", color: "var(--text-faint)" }}>กำลังโหลดกราฟแนวโน้มราคา...</p>)}
 
-          <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 800, color: "var(--primary)" }}>เปรียบเทียบราคาต่อหน่วยแต่ละ Vendor ({unitLabel} · เรียงจากถูกสุด)</p>
+          <p style={{ margin: "0 0 10px", fontSize: "12px", fontWeight: 800, color: "var(--primary)" }}>Vendor ที่เคยขายสินค้านี้{SHOW_PRICES ? " (เรียงจากราคาถูกสุด)" : ""}</p>
           <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead>
               <tr style={{ background: "var(--surface-2)" }}>
-                {["Vendor", "ราคาล่าสุด", "ซื้อล่าสุด", "PO ล่าสุด", "เฉลี่ย", "ช่วงราคา", "จำนวนซื้อ", ""].map((h, i) => (
+                {heads.map((h, i) => (
                   <th key={h || i} style={{ padding: "10px 12px", textAlign: i === 0 ? "left" : "right", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700, borderBottom: "2px solid var(--border)" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {vendors.map((v) => {
-                const best = v.vendorCode === cheapest;
                 const open = openVendor === v.vendorCode;
                 const points = history?.get(v.vendorCode) ?? [];
+                const isLow = SHOW_PRICES && comparable && v.lastPrice === lowest.lastPrice;
+                const isHigh = SHOW_PRICES && comparable && v.lastPrice === highest.lastPrice;
+                const rowBg = isLow ? "color-mix(in srgb, var(--success) 9%, var(--surface))" : isHigh ? "color-mix(in srgb, var(--danger) 7%, var(--surface))" : "var(--surface)";
                 return (
                   <Fragment key={v.vendorCode}>
-                    <tr style={{ background: best ? "color-mix(in srgb, var(--success) 15%, var(--surface))" : "var(--surface)", borderBottom: open ? "none" : "1px solid var(--surface-2)" }}>
-                      <td style={{ padding: "10px 12px", minWidth: "150px" }}>
-                        {best && <span style={{ background: "var(--success)", color: "white", fontSize: "9px", fontWeight: 800, padding: "1px 6px", borderRadius: "6px", marginRight: "6px" }}>ถูกสุด</span>}
+                    <tr style={{ background: rowBg, borderBottom: open ? "none" : "1px solid var(--surface-2)" }}>
+                      <td style={{ padding: "10px 12px", minWidth: "170px" }}>
+                        {isLow && <PriceBadge kind="low" />}
+                        {isHigh && <PriceBadge kind="high" />}
                         <a href={`#/vendor/${encodeURIComponent(v.vendorCode)}`} title="เปิดหน้าข้อมูล Vendor นี้"
                           style={{ fontWeight: 700, color: "var(--primary)", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px" }}>
                           {v.vendorName || v.vendorCode}
                         </a>
                         <span style={{ display: "block", fontSize: "10px", color: "var(--text-faint)" }}>{v.vendorCode}</span>
                       </td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: best ? "var(--success)" : "var(--primary)" }}>{baht(v.lastPrice)}</td>
+                      {SHOW_PRICES && (
+                        <>
+                          <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums", color: isLow ? "var(--success)" : isHigh ? "var(--danger)" : "var(--primary)" }}>
+                            {baht(v.lastPrice)}
+                            {comparable && !isLow && (
+                              <span style={{ display: "block", fontSize: "10px", fontWeight: 600, color: "var(--text-faint)" }}>{fmtPct(variancePct(lowest.lastPrice, v.lastPrice))} จากต่ำสุด</span>
+                            )}
+                          </td>
+                          <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-muted)", fontSize: "12px" }}>{CURRENCY}</td>
+                        </>
+                      )}
                       <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>{v.lastDate || "-"}</td>
                       <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "nowrap", userSelect: "all" }}>{v.lastPoNumber || "-"}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-muted)" }}>{baht(v.avgPrice)}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>
-                        {v.minPrice === v.maxPrice ? "-" : `${bahtShort(v.minPrice)}–${bahtShort(v.maxPrice)}`}
-                      </td>
                       <td style={{ padding: "10px 8px", textAlign: "right", color: "var(--text-muted)" }}>{v.count}×</td>
                       <td style={{ padding: "10px 8px", textAlign: "right" }}>
-                        <button onClick={() => toggleHistory(v.vendorCode)}
+                        <button onClick={() => setOpenVendor(open ? null : v.vendorCode)}
                           style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: open ? "var(--navy)" : "var(--surface-2)", color: open ? "white" : "var(--primary)", border: "none", borderRadius: "8px", padding: "5px 10px", fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                           <IconChartLine size={13} stroke={2} /> ประวัติ {open ? "▲" : "▼"}
                         </button>
                       </td>
                     </tr>
                     {open && (
-                      <tr style={{ background: best ? "color-mix(in srgb, var(--success) 15%, var(--surface))" : "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
-                        <td colSpan={8} style={{ padding: "4px 16px 16px" }}>
-                          {loadingHistory && !history
-                            ? <p style={{ margin: "8px 0 0", fontSize: "12px", color: "var(--text-faint)" }}>กำลังโหลดประวัติราคา...</p>
-                            : <PriceHistoryChart points={points} unit={item.unit} />}
+                      <tr style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
+                        <td colSpan={colCount} style={{ padding: "4px 16px 16px" }}>
+                          {!history
+                            ? <p style={{ margin: "8px 0 0", fontSize: "12px", color: "var(--text-faint)" }}>กำลังโหลดประวัติ...</p>
+                            : <PurchaseHistoryTable points={points} unit={item.unit} />}
                         </td>
                       </tr>
                     )}
@@ -302,7 +345,7 @@ export default function ItemMasterPage() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("ทั้งหมด");
   const [filterCompany, setFilterCompany] = useState("ทั้งหมด");
-  const [comparableOnly, setComparableOnly] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("spend");
   const [detail, setDetail] = useState<ItemAgg | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -337,33 +380,61 @@ export default function ItemMasterPage() {
     return ["ทั้งหมด", ...[...set].sort()];
   }, [items]);
 
-  const filtered = useMemo(() => {
-    // Multi-token AND match across item code/name, category, and every vendor
-    // that sells it — so "solar huawei" finds an item by combining a product
-    // keyword with a supplier name, not just one exact-substring field.
+  // Search + category/company first (so the quick-filter chip counters reflect
+  // them), then the quick filter and the sort.
+  const baseFiltered = useMemo(() => {
+    // Flexible multi-token AND match across Part No., product name, category,
+    // vendor name/code, company — "solar huawei" combines a product keyword with
+    // a supplier. Each token also matches ignoring punctuation/spaces/case, so
+    // a Part No. typed as "1CSMS-000600" or "1csms 000600" still finds 1CSMS000600.
     const tokens = search.toLowerCase().split(/\s+/).filter(Boolean);
+    const normTokens = tokens.map(normKey).filter(Boolean);
     return items.filter((it) => {
-      let matchSearch = true;
       if (tokens.length) {
         const haystack = [
-          it.itemNumber, it.productName, it.searchName, it.category,
+          it.itemNumber, it.productName, it.searchName, it.category, it.lastPoNumber,
           ...it.vendors.map((v) => v.vendorName),
           ...it.vendors.map((v) => v.vendorCode),
           ...(it.companies || []),
         ].join(" ").toLowerCase();
-        matchSearch = tokens.every((t) => haystack.includes(t));
+        const normHay = normKey(haystack);
+        const ok = tokens.every((t, i) => haystack.includes(t) || (normTokens[i] ? normHay.includes(normTokens[i]) : true));
+        if (!ok) return false;
       }
       const matchCat = filterCat === "ทั้งหมด" || it.category === filterCat;
       const matchCompany = filterCompany === "ทั้งหมด" || (it.companies || []).includes(filterCompany);
-      const matchCmp = !comparableOnly || it.numVendors > 1;
-      return matchSearch && matchCat && matchCompany && matchCmp;
-    }).sort((a, b) => {
+      return matchCat && matchCompany;
+    });
+  }, [items, search, filterCat, filterCompany]);
+
+  const quickCounts = useMemo(() => ({
+    all: baseFiltered.length,
+    multi: baseFiltered.filter((it) => it.numVendors > 1).length,
+    variance: baseFiltered.filter((it) => itemVariance(it) > HIGH_VARIANCE_PCT).length,
+  }), [baseFiltered]);
+
+  const filtered = useMemo(() => {
+    const list = baseFiltered.filter((it) =>
+      quickFilter === "multi" ? it.numVendors > 1
+        : quickFilter === "variance" ? itemVariance(it) > HIGH_VARIANCE_PCT
+        : true);
+    return [...list].sort((a, b) => {
       if (sortKey === "name") return (a.productName || a.itemNumber).localeCompare(b.productName || b.itemNumber, "th");
       if (sortKey === "vendors") return b.numVendors - a.numVendors;
       if (sortKey === "qty") return b.totalQty - a.totalQty;
+      if (sortKey === "variance") return itemVariance(b) - itemVariance(a) || b.numVendors - a.numVendors;
+      if (sortKey === "price") return b.lastPrice - a.lastPrice;
       return b.totalSpend - a.totalSpend;
     });
-  }, [items, search, filterCat, filterCompany, comparableOnly, sortKey]);
+  }, [baseFiltered, quickFilter, sortKey]);
+
+  // Picking a comparison chip ranks the list by price spread, so the items
+  // with the biggest price gaps are on top (header + cells light up to match).
+  const pickQuick = (q: QuickFilter) => {
+    setQuickFilter(q);
+    if (q !== "all" && sortKey === "spend") setSortKey("variance");
+    if (q === "all" && sortKey === "variance") setSortKey("spend");
+  };
 
   const comparableCount = useMemo(() => items.filter((it) => it.numVendors > 1).length, [items]);
 
@@ -384,7 +455,7 @@ export default function ItemMasterPage() {
               <p style={{ margin: "0 0 16px", color: "rgba(255,255,255,0.55)", fontSize: "15px" }}>เปรียบเทียบราคาสินค้าระหว่าง Vendor จากประวัติการสั่งซื้อจริง</p>
               <div style={{ position: "relative" }}>
                 <IconSearch size={16} stroke={2} style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--navy)" }} />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาได้เลย — รหัสสินค้า, ชื่อ, Vendor, บริษัท (GKE/GUE/GSC...), หมวดหมู่"
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา Part No., ชื่อสินค้า, ชื่อ Vendor — พิมพ์หลายคำได้ เช่น huawei inverter"
                   style={{ width: "100%", padding: "13px 14px 13px 38px", borderRadius: "12px", border: "2px solid var(--accent-soft)", boxSizing: "border-box", fontSize: "14px", outline: "none", background: "#fffdf5", color: "var(--navy)" }} />
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "20px" }}>
@@ -433,6 +504,8 @@ export default function ItemMasterPage() {
               <label style={{ display: "block", marginBottom: "7px", fontSize: "11px", fontWeight: 700, color: "var(--text-faint)" }}>เรียงตาม</label>
               <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} style={{ width: "100%", padding: "11px 10px", borderRadius: "10px", border: "1.5px solid var(--border)", fontSize: "13px", color: "var(--primary)", background: "var(--surface)" }}>
                 <option value="spend">ยอดซื้อสูงสุด</option>
+                {SHOW_PRICES && <option value="variance">ส่วนต่างราคาสูงสุด</option>}
+                {SHOW_PRICES && <option value="price">ราคาล่าสุดสูงสุด</option>}
                 <option value="vendors">จำนวน Vendor</option>
                 <option value="qty">จำนวนที่ซื้อ</option>
                 <option value="name">ชื่อ A-Z</option>
@@ -443,10 +516,29 @@ export default function ItemMasterPage() {
             <p style={{ margin: 0, fontSize: "13px", color: "var(--text-faint)" }}>
               แสดง <strong style={{ color: "var(--primary)" }}>{filtered.length}</strong> จาก <strong style={{ color: "var(--primary)" }}>{items.length}</strong> รายการ
             </p>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--text-muted)", cursor: "pointer", fontWeight: 700 }}>
-              <input type="checkbox" checked={comparableOnly} onChange={(e) => setComparableOnly(e.target.checked)} />
-              <IconScale size={14} stroke={1.75} /> เฉพาะที่เทียบราคาได้
-            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+              {([
+                { key: "all", label: "ทั้งหมด" },
+                { key: "multi", label: "มีหลาย Vendor (เปรียบเทียบได้)" },
+                ...(SHOW_PRICES ? [{ key: "variance", label: `ส่วนต่างราคาสูง (>${HIGH_VARIANCE_PCT}%)` }] : []),
+              ] as { key: QuickFilter; label: string }[]).map((c) => {
+                const on = quickFilter === c.key;
+                return (
+                  <button key={c.key} type="button" onClick={() => pickQuick(c.key)} style={{
+                    display: "inline-flex", alignItems: "center", gap: "6px", font: "inherit", fontSize: "12px", fontWeight: on ? 700 : 600, cursor: "pointer",
+                    padding: "5px 12px", borderRadius: "999px",
+                    border: `1.5px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                    background: on ? "var(--accent-bg)" : "transparent", color: on ? "var(--text-strong)" : "var(--text-muted)",
+                  }}>
+                    {c.key === "multi" && <IconScale size={13} stroke={1.75} />}
+                    {c.label}
+                    <span style={{ minWidth: 18, textAlign: "center", fontSize: "10px", fontWeight: 700, borderRadius: "999px", padding: "0 6px", background: "var(--surface-2)", color: "var(--text-muted)" }}>
+                      {quickCounts[c.key].toLocaleString()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -466,9 +558,23 @@ export default function ItemMasterPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
               <thead>
                 <tr style={{ background: "linear-gradient(135deg, var(--navy), var(--navy-mid))" }}>
-                  {["รหัส", "ชื่อสินค้า", "หมวด", "บริษัท", "Vendor", "ราคาเฉลี่ย", "ช่วงราคา", "ยอดซื้อ"].map((h, i) => (
-                    <th key={h} style={{ padding: "13px 14px", textAlign: i >= 4 ? "right" : "left", fontWeight: 700, fontSize: "12px", color: "rgba(255,255,255,0.85)" }}>{h}</th>
-                  ))}
+                  {([
+                    { h: "รหัส" }, { h: "ชื่อสินค้า" }, { h: "PO ล่าสุด" }, { h: "บริษัท" }, { h: "Vendor" },
+                    ...(SHOW_PRICES ? [{ h: "ราคาต่อหน่วยล่าสุด", right: true, sort: "price" }, { h: "ส่วนต่างราคา", right: true, sort: "variance" }] : []),
+                    { h: "PO date", right: true },
+                  ] as { h: string; right?: boolean; sort?: SortKey }[]).map((c) => {
+                    const active = !!c.sort && sortKey === c.sort;
+                    return (
+                      <th key={c.h} onClick={c.sort ? () => setSortKey(c.sort!) : undefined}
+                        style={{
+                          padding: "13px 14px", textAlign: c.right ? "right" : "left", fontWeight: 700, fontSize: "12px", whiteSpace: "nowrap",
+                          color: active ? "var(--accent-soft)" : "rgba(255,255,255,0.85)", cursor: c.sort ? "pointer" : "default",
+                          boxShadow: active ? "inset 0 -3px 0 var(--accent)" : undefined,
+                        }}>
+                        {c.h}{active ? " ▼" : ""}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -478,7 +584,7 @@ export default function ItemMasterPage() {
                     style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", background: hoveredId === it.itemNumber ? "var(--surface-2)" : i % 2 === 0 ? "var(--surface)" : "var(--surface-2)" }}>
                     <td style={{ padding: "13px 14px", color: "var(--text-faint)", fontWeight: 700, fontSize: "12px", whiteSpace: "nowrap" }}>{highlight(it.itemNumber, search)}</td>
                     <td style={{ padding: "13px 14px", fontWeight: 700, color: "var(--primary)", maxWidth: "300px" }}>{highlight(it.productName || it.itemNumber, search)}</td>
-                    <td style={{ padding: "13px 14px", color: "var(--text-muted)", fontSize: "12px" }}>{it.category || "-"}</td>
+                    <td style={{ padding: "13px 14px", color: "var(--text-faint)", fontSize: "12px", fontFamily: "monospace", whiteSpace: "nowrap" }}>{it.lastPoNumber || "-"}</td>
                     <td style={{ padding: "13px 14px" }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                         {(it.companies || []).length === 0 && <span style={{ color: "var(--text-faint)", fontSize: "12px" }}>-</span>}
@@ -487,14 +593,44 @@ export default function ItemMasterPage() {
                         ))}
                       </div>
                     </td>
-                    <td style={{ padding: "13px 14px", textAlign: "right" }}>
-                      <span style={{ background: it.numVendors > 1 ? "color-mix(in srgb, var(--success) 18%, var(--surface))" : "var(--surface-2)", color: it.numVendors > 1 ? "var(--success)" : "var(--text-faint)", padding: "2px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 800 }}>{it.numVendors}</span>
+                    <td style={{ padding: "13px 14px", maxWidth: "260px", color: "var(--text-muted)", fontSize: "12px" }}
+                      title={it.vendors.map((v) => v.vendorName).filter(Boolean).join(", ") || "-"}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {it.numVendors > 1 && (
+                          <span style={{ flexShrink: 0, background: "color-mix(in srgb, var(--info) 16%, transparent)", color: "var(--info)", borderRadius: "999px", padding: "1px 8px", fontSize: "10.5px", fontWeight: 800, whiteSpace: "nowrap" }}>
+                            {it.numVendors} Vendors
+                          </span>
+                        )}
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {it.vendors.map((v) => v.vendorName).filter(Boolean).join(", ") || "-"}
+                        </span>
+                      </div>
                     </td>
-                    <td style={{ padding: "13px 14px", textAlign: "right", fontWeight: 700, color: "var(--primary)" }}>{baht(it.avgPrice)}</td>
-                    <td style={{ padding: "13px 14px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px" }}>
-                      {it.minPrice === it.maxPrice ? "-" : `${bahtShort(it.minPrice)}–${bahtShort(it.maxPrice)}`}
-                    </td>
-                    <td style={{ padding: "13px 14px", textAlign: "right", color: "var(--text-muted)" }}>{bahtShort(it.totalSpend)}</td>
+                    {SHOW_PRICES && (() => {
+                      const vp = itemVariance(it);
+                      const hot = vp > HIGH_VARIANCE_PCT;
+                      const sortedByVar = sortKey === "variance";
+                      return (
+                        <>
+                          <td style={{ padding: "13px 14px", textAlign: "right", fontWeight: 700, color: "var(--primary)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", background: sortKey === "price" ? "color-mix(in srgb, var(--accent) 8%, transparent)" : undefined }}>
+                            {it.lastPrice > 0 ? baht(it.lastPrice) : "—"}
+                          </td>
+                          <td style={{ padding: "13px 14px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", background: sortedByVar ? "color-mix(in srgb, var(--accent) 8%, transparent)" : undefined }}>
+                            {vp > 0 ? (
+                              <>
+                                <span style={{
+                                  display: "inline-block", fontWeight: 800, fontSize: "12px", borderRadius: "999px", padding: "1px 9px",
+                                  color: hot ? "var(--danger)" : "var(--text-muted)",
+                                  background: hot ? "color-mix(in srgb, var(--danger) 14%, transparent)" : "var(--surface-2)",
+                                }}>{fmtPct(vp)}</span>
+                                <div style={{ fontSize: "10.5px", color: "var(--text-faint)", marginTop: 2 }}>{baht(it.minPrice)} – {baht(it.maxPrice)}</div>
+                              </>
+                            ) : <span style={{ color: "var(--text-faint)" }}>—</span>}
+                          </td>
+                        </>
+                      );
+                    })()}
+                    <td style={{ padding: "13px 14px", textAlign: "right", color: "var(--text-faint)", fontSize: "12px", whiteSpace: "nowrap" }}>{it.lastDate || "-"}</td>
                   </tr>
                 ))}
               </tbody>
