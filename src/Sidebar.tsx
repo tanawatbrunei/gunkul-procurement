@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTheme } from "./ThemeContext";
 import {
   IconHome2,
-  IconBuildingWarehouse,
   IconClipboardList,
   IconBook2,
   IconSitemap,
@@ -26,11 +25,15 @@ export type Page =
   | "itemmaster"
   | "users";
 
+// Vendor Directory is hidden from the nav (vendor pricing/contact data is too
+// sensitive to show broadly) — Item Master stays, for looking up which PO a
+// part was bought under; price/spend figures and related UI are removed
+// there entirely (see ItemMasterPage.tsx). The Vendor Directory page/route
+// itself is untouched.
 const NAV_ITEMS: { page: Page; label: string; icon: typeof IconHome2 }[] = [
   { page: "home", label: "Home", icon: IconHome2 },
   { page: "project", label: "Project", icon: IconBuildingFactory2 },
   { page: "itemmaster", label: "Item Master", icon: IconPackage },
-  { page: "vendor", label: "Vendor Directory", icon: IconBuildingWarehouse },
   { page: "tracking", label: "Tracking & Dashboard", icon: IconClipboardList },
   { page: "knowledge", label: "Knowledge Base", icon: IconBook2 },
   { page: "esg", label: "ESG & Sustainability", icon: IconLeaf },

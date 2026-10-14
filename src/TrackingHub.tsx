@@ -59,7 +59,7 @@ export default function TrackingHub({ view, onViewChange }: { view: TrackingView
         </div>
       </div>
       <Suspense fallback={<div style={{ padding: "var(--sp-5)", color: "var(--text-faint)", fontSize: "var(--fs-sm)" }}>กำลังโหลด...</div>}>
-        {opened.has("summary") && <div style={{ display: view === "summary" ? "block" : "none" }}><DashboardPage onDrill={setDrilldown} /></div>}
+        {opened.has("summary") && <div style={{ display: view === "summary" ? "block" : "none" }}><DashboardPage onDrill={setDrilldown} onOpenAllRows={() => onViewChange("rows")} /></div>}
         {opened.has("rows") && <div style={{ display: view === "rows" ? "block" : "none" }}><TrackingPage /></div>}
       </Suspense>
     </div>

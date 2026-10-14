@@ -102,9 +102,15 @@ export interface TrackingKpis {
   };
   approvalTime: { pa: TurnaroundStat; po: TurnaroundStat };
   /** PO Nos. opened (Date PO Submitted) this month vs last month. */
-  throughput: { thisMonth: number; lastMonth: number; monthLabel: string; thisMonthRows: TrackingRow[] };
+  throughput: {
+    thisMonth: number; lastMonth: number; monthLabel: string; thisMonthRows: TrackingRow[];
+    /** Distinct PO Nos. opened since 1 Jan this year (Date PO Submitted). */
+    ytd: number; ytdRows: TrackingRow[];
+  };
   onTimeDelivery: {
-    pct: number | null;   // null until coverage.ready
+    /** Share of MEASURABLE rows delivered on time — shown even on thin data (the
+     *  UI flags incomplete coverage with a badge); null only when nothing is measurable. */
+    pct: number | null;
     onTime: number;
     /** Measured / (Completed ∪ delivered) rows. */
     coverage: Coverage;
@@ -157,13 +163,14 @@ export function computeTrackingKpis(
   // --- Throughput: distinct PO Nos. by month of Date PO Submitted ---
   const ym = (d: Date) => d.getFullYear() * 12 + d.getMonth();
   const nowM = ym(today);
-  const thisSet = new Set<string>(), lastSet = new Set<string>();
-  const thisMonthRows: TrackingRow[] = [];
+  const thisSet = new Set<string>(), lastSet = new Set<string>(), ytdSet = new Set<string>();
+  const thisMonthRows: TrackingRow[] = [], ytdRows: TrackingRow[] = [];
   for (const r of rows) {
     if (!r.poNo?.trim()) continue;
     const d = plausibleDate(r.poSubmittedDate, today);
     if (!d) continue;
     const key = r.poNo.trim().toUpperCase();
+    if (d.getFullYear() === today.getFullYear() && d.getTime() <= today.getTime()) { ytdSet.add(key); ytdRows.push(r); }
     if (ym(d) === nowM) { thisSet.add(key); thisMonthRows.push(r); }
     else if (ym(d) === nowM - 1) lastSet.add(key);
   }
@@ -220,8 +227,10 @@ export function computeTrackingKpis(
       lastMonth: lastSet.size,
       monthLabel: today.toLocaleDateString("th-TH", { month: "long", year: "numeric" }),
       thisMonthRows,
+      ytd: ytdSet.size,
+      ytdRows,
     },
-    onTimeDelivery: { pct: otdCov.ready ? Math.round((onTime / measured) * 100) : null, onTime, coverage: otdCov },
+    onTimeDelivery: { pct: measured > 0 ? Math.round((onTime / measured) * 100) : null, onTime, coverage: otdCov },
     atRisk: { count: overdueRows.length, coverage: coverage(withNeeded, undelivered.length), rows: overdueRows },
   };
 }

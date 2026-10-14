@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, setDoc, arrayUnion,
 } from "firebase/firestore";
@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import {
   IconBuildingFactory2, IconSearch, IconPlus, IconPencil, IconTrash, IconX, IconFileSpreadsheet,
+  IconChevronRight, IconChevronDown,
 } from "@tabler/icons-react";
 import { Reveal, Section } from "./components/PageKit";
 import ProjectFarm from "./components/ProjectFarm";
@@ -20,6 +21,19 @@ function formatNumber(v: number | string | null | undefined): string {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n.toLocaleString("en-US") : String(v);
 }
+
+/** Money fields are free text in Firestore ("1,200,000", 1200000, "") — parse to a number or null. */
+function toNumber(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(String(v).replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+const groupKey = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Y-axis width that fits the longest category label, so names aren't clipped. */
+const labelAxisWidth = (names: string[], min = 80, max = 190) =>
+  Math.min(max, Math.max(min, Math.round(Math.max(0, ...names.map((n) => n.length)) * 6.4) + 16));
 
 export const CONTRACT_TYPE_OPTIONS = ["EPC", "PPA", "PEAESCO", "-"] as const;
 export type ContractType = (typeof CONTRACT_TYPE_OPTIONS)[number];
@@ -39,8 +53,8 @@ export type ColorStatus = (typeof COLOR_STATUS_OPTIONS)[number];
 export const COLOR_STATUS_HEX: Record<ColorStatus, string> = {
   Done: "#3fa34d",
   Cancelled: "#d64545",
-  Hold: "#3a8fd6",
-  "On going": "#9aa3ad",
+  Hold: "#f08c2e",
+  "On going": "#3a8fd6",
 };
 
 export const TOC_OPTIONS = ["Not yet", "WIP", "Done"] as const;
@@ -171,6 +185,32 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
+function KpiCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `4px solid ${color}`,
+      borderRadius: "var(--radius-lg)", padding: "var(--sp-4)",
+    }}>
+      <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ fontSize: "var(--fs-h2)", fontWeight: 700, color, lineHeight: 1.25, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--text-faint)", marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: ColorStatus }) {
+  const c = COLOR_STATUS_HEX[status] ?? "var(--text-muted)";
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: "0.35rem", padding: "0.2rem 0.6rem", borderRadius: "999px",
+      fontSize: "10px", fontWeight: 600, background: `color-mix(in srgb, ${c} 16%, transparent)`, color: c,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: c }} />
+      {status}
+    </span>
+  );
+}
+
 // Percentage drawn INSIDE each donut slice — category names live in the legend
 // below, so labels never overflow the card and get clipped. Very thin slices
 // (<5%) are left unlabelled to avoid cramped text.
@@ -193,7 +233,23 @@ const PIE_LABEL = (e: {
   );
 };
 
-const STICKY_WIDTHS = [60, 200];
+const STICKY_WIDTHS = [64, 250];
+
+/* Columns after the four leading ones (Job / name / Status / TOC). `right` columns hold numbers. */
+const COLS: { key: string; label: string; right?: boolean }[] = [
+  { key: "roofType", label: "ประเภทหลังคา" }, { key: "contractType", label: "ประเภทสัญญา" },
+  { key: "kwp", label: "kWp", right: true }, { key: "counterparty", label: "คู่สัญญา" },
+  { key: "location", label: "Location" }, { key: "contractPrice", label: "ราคาตามสัญญา", right: true },
+  { key: "subconAward", label: "Award Subcon", right: true }, { key: "material", label: "Material THB/W", right: true },
+  { key: "labour", label: "Labour THB/W", right: true }, { key: "subconName", label: "Subcon Name" },
+  { key: "awardDate", label: "Award Date" }, { key: "pvBrand", label: "PV Brand" },
+  { key: "powerClass", label: "Power Class" }, { key: "inverterBrand", label: "Inverter Brand" },
+  { key: "inverterModel", label: "Inverter Model" }, { key: "optimizer", label: "Optimizer" },
+  { key: "bessBrand", label: "BESS Brand" }, { key: "bessSize", label: "BESS Size" }, { key: "om", label: "OM" },
+  { key: "kickoff", label: "Kick off Date" }, { key: "puPic", label: "PU PIC" }, { key: "pmPic", label: "PM PIC" },
+  { key: "engPic", label: "ENG PIC" }, { key: "status", label: "สถานะ" }, { key: "note", label: "Remark" },
+  { key: "actions", label: "" },
+];
 const stickyLeft = (i: number) => STICKY_WIDTHS.slice(0, i).reduce((a, b) => a + b, 0);
 
 const inputStyle: React.CSSProperties = {
@@ -460,6 +516,7 @@ export default function ProjectPage() {
   const [addingProject, setAddingProject] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "jobNo" | "kWp" | "status">("jobNo");
   const [sortAsc, setSortAsc] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editingCell, setEditingCell] = useState<{ projectId: string; field: keyof Project; value: string } | null>(null);
   const [customBrandOptions, setCustomBrandOptions] = useState<Record<CustomOptionKey, string[]>>({
     pv: [], inverter: [], bess: [], powerClass: [], inverterModel: [], optimizer: [], bessSize: [], om: [],
@@ -610,7 +667,7 @@ export default function ProjectPage() {
       if (p.subconName && p.subconName !== "-") counts[p.subconName] = (counts[p.subconName] ?? 0) + 1;
     }
     const sorted = Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-    const TOP_N = 5;
+    const TOP_N = 10;
     const top = sorted.slice(0, TOP_N);
     const rest = sorted.slice(TOP_N);
     const restTotal = rest.reduce((sum, d) => sum + d.value, 0);
@@ -692,6 +749,39 @@ export default function ProjectPage() {
       .slice(0, 8);
   }, [projects]);
 
+  // Executive KPIs — capacity and contract value exclude cancelled projects.
+  const kpis = useMemo(() => {
+    const live = projects.filter((p) => p.colorStatus !== "Cancelled");
+    return {
+      total: projects.length,
+      uniqueNames: new Set(projects.map((p) => groupKey(p.name))).size,
+      ongoing: projects.filter((p) => p.colorStatus === "On going").length,
+      hold: projects.filter((p) => p.colorStatus === "Hold").length,
+      mw: live.reduce((sum, p) => sum + (p.capacityKwp ?? 0), 0) / 1000,
+      workback: live.reduce((sum, p) => sum + (toNumber(p.contractPrice) ?? 0), 0),
+      cancelled: projects.length - live.length,
+    };
+  }, [projects]);
+
+  // Table rows grouped by project name (case/space-insensitive), keeping the current sort order.
+  const groups = useMemo(() => {
+    const map = new Map<string, Project[]>();
+    for (const p of filtered) {
+      const k = groupKey(p.name);
+      const list = map.get(k);
+      if (list) list.push(p); else map.set(k, [p]);
+    }
+    return Array.from(map, ([key, rows]) => ({ key, rows }));
+  }, [filtered]);
+
+  const toggleGroup = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  const expandableKeys = groups.filter((g) => g.rows.length > 1 || g.rows[0].phases.length > 0).map((g) => g.key);
+
   return (
     <div style={{ maxWidth: "1440px", margin: "0 auto", padding: "var(--sp-7) var(--sp-5)" }}>
       <Reveal>
@@ -711,6 +801,21 @@ export default function ProjectPage() {
           โหลดข้อมูลไม่สำเร็จ: {loadError}
         </div>
       )}
+
+      <Reveal delay={40}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--sp-4)", marginBottom: "var(--sp-5)" }}>
+          <KpiCard label="โครงการทั้งหมด" color="var(--primary)" value={kpis.total.toLocaleString("en-US")}
+            sub={`${kpis.uniqueNames.toLocaleString("en-US")} ชื่อโครงการไม่ซ้ำ`} />
+          <KpiCard label="อยู่ระหว่างดำเนินการ" color={COLOR_STATUS_HEX["On going"]} value={kpis.ongoing.toLocaleString("en-US")}
+            sub={`On going · Hold ${kpis.hold.toLocaleString("en-US")}`} />
+          <KpiCard label="กำลังการผลิตรวม (MW)" color="var(--accent)"
+            value={kpis.mw.toLocaleString("en-US", { maximumFractionDigits: 1 })}
+            sub={kpis.cancelled ? `ไม่รวมโครงการที่ยกเลิก ${kpis.cancelled}` : "รวมทุกโครงการ"} />
+          <KpiCard label="มูลค่าวอร์กแบ็กรวม (THB)" color="var(--success)"
+            value={kpis.workback.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            sub="ผลรวมราคาตามสัญญา · ไม่รวมที่ยกเลิก" />
+        </div>
+      </Reveal>
 
       <Reveal delay={80}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "var(--sp-4)", marginBottom: "var(--sp-6)" }}>
@@ -745,42 +850,39 @@ export default function ProjectPage() {
           </ChartCard>
           <ChartCard title="สัดส่วนประเภทหลังคา">
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={roofChartData} layout="vertical" margin={{ left: 8 }}>
+              <BarChart data={roofChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" allowDecimals={false} fontSize={12} />
-                <YAxis type="category" dataKey="name" fontSize={11} width={100} interval={0} />
+                <YAxis type="category" dataKey="name" fontSize={11} width={labelAxisWidth(roofChartData.map((d) => d.name))} interval={0} />
                 <Tooltip cursor={{ fill: "color-mix(in srgb, var(--accent) 8%, transparent)" }} />
                 <Bar dataKey="count" fill="var(--accent)" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={600} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
           {subconChartData.length > 0 && (
-            <ChartCard title="สัดส่วน Subcon ที่ใช้งาน">
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart margin={{ top: 8, bottom: 8 }}>
-                  <Pie
-                    data={subconChartData} dataKey="value" nameKey="name"
-                    innerRadius={52} outerRadius={88} paddingAngle={2} cornerRadius={4}
-                    isAnimationActive animationDuration={600}
-                    label={PIE_LABEL} labelLine={false} fontSize={11}
-                  >
+            <ChartCard title="Subcon ที่ใช้งาน (จำนวนโครงการ · เรียงมาก→น้อย)">
+              <ResponsiveContainer width="100%" height={Math.max(240, subconChartData.length * 30 + 40)}>
+                <BarChart data={subconChartData} layout="vertical" margin={{ left: 8, right: 24 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} fontSize={11} />
+                  <YAxis type="category" dataKey="name" fontSize={11} width={labelAxisWidth(subconChartData.map((d) => d.name))} interval={0} />
+                  <Tooltip formatter={(v) => [`${v} โครงการ`, "ใช้งาน"]} cursor={{ fill: "color-mix(in srgb, var(--primary) 8%, transparent)" }} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={600}>
                     {subconChartData.map((d, i) => (
-                      <Cell key={d.name} fill={SOFT_PALETTE[i % SOFT_PALETTE.length]} stroke="var(--surface)" strokeWidth={2} />
+                      <Cell key={d.name} fill={SOFT_PALETTE[i % SOFT_PALETTE.length]} />
                     ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </ChartCard>
           )}
           {pvBrandChartData.length > 0 && (
             <ChartCard title="สัดส่วน PV Brand">
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={pvBrandChartData} layout="vertical" margin={{ left: 4 }}>
+                <BarChart data={pvBrandChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" allowDecimals={false} fontSize={11} />
-                  <YAxis type="category" dataKey="name" fontSize={10} width={75} />
+                  <YAxis type="category" dataKey="name" fontSize={11} width={labelAxisWidth(pvBrandChartData.map((d) => d.name))} interval={0} />
                   <Tooltip cursor={{ fill: "color-mix(in srgb, #5B9BD5 8%, transparent)" }} />
                   <Bar dataKey="count" fill="#5B9BD5" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={600} />
                 </BarChart>
@@ -803,10 +905,10 @@ export default function ProjectPage() {
           {inverterBrandChartData.length > 0 && (
             <ChartCard title="สัดส่วน Inverter Brand">
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={inverterBrandChartData} layout="vertical" margin={{ left: 4 }}>
+                <BarChart data={inverterBrandChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" allowDecimals={false} fontSize={11} />
-                  <YAxis type="category" dataKey="name" fontSize={10} width={75} />
+                  <YAxis type="category" dataKey="name" fontSize={11} width={labelAxisWidth(inverterBrandChartData.map((d) => d.name))} interval={0} />
                   <Tooltip cursor={{ fill: "color-mix(in srgb, #FFC000 8%, transparent)" }} />
                   <Bar dataKey="count" fill="#FFC000" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={600} />
                 </BarChart>
@@ -816,10 +918,10 @@ export default function ProjectPage() {
           {bessBrandChartData.length > 0 && (
             <ChartCard title="สัดส่วน BESS Brand">
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={bessBrandChartData} layout="vertical" margin={{ left: 4 }}>
+                <BarChart data={bessBrandChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" allowDecimals={false} fontSize={11} />
-                  <YAxis type="category" dataKey="name" fontSize={10} width={75} />
+                  <YAxis type="category" dataKey="name" fontSize={11} width={labelAxisWidth(bessBrandChartData.map((d) => d.name))} interval={0} />
                   <Tooltip cursor={{ fill: "color-mix(in srgb, #A349A4 8%, transparent)" }} />
                   <Bar dataKey="count" fill="#A349A4" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={600} />
                 </BarChart>
@@ -842,10 +944,10 @@ export default function ProjectPage() {
           {pvBrandMwChartData.length > 0 && (
             <ChartCard title="กำลังการผลิตต่อ PV Brand (MW)">
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={pvBrandMwChartData} layout="vertical" margin={{ left: 4 }}>
+                <BarChart data={pvBrandMwChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" fontSize={11} unit=" MW" />
-                  <YAxis type="category" dataKey="name" fontSize={10} width={75} />
+                  <YAxis type="category" dataKey="name" fontSize={11} width={labelAxisWidth(pvBrandMwChartData.map((d) => d.name))} interval={0} />
                   <Tooltip formatter={(v) => [`${v} MW`, "กำลังผลิต"]} cursor={{ fill: "color-mix(in srgb, #5B9BD5 8%, transparent)" }} />
                   <Bar dataKey="mw" fill="#5B9BD5" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={600} />
                 </BarChart>
@@ -894,6 +996,15 @@ export default function ProjectPage() {
             <option value="all">ประเภทสัญญาทั้งหมด</option>
             {CONTRACT_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
+          {expandableKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(expandableKeys.every((k) => expanded.has(k)) ? new Set() : new Set(expandableKeys))}
+              style={{ border: "1px solid var(--border-strong)", background: "var(--surface)", color: "var(--text)", borderRadius: "var(--radius-sm)", padding: "0.5rem 0.9rem", cursor: "pointer", fontSize: "var(--fs-sm)" }}
+            >
+              {expandableKeys.every((k) => expanded.has(k)) ? "ยุบทั้งหมด" : "ขยายทั้งหมด"}
+            </button>
+          )}
         </div>
 
         {filtered.length === 0 ? (
@@ -925,40 +1036,13 @@ export default function ProjectPage() {
                       {label} {key && sortBy === key && (sortAsc ? "↑" : "↓")}
                     </th>
                   ))}
-                  {[
-                    { label: "ประเภทหลังคา" },
-                    { label: "ประเภทสัญญา" },
-                    { label: "kWp" },
-                    { label: "คู่สัญญา" },
-                    { label: "Location" },
-                    { label: "ราคาตามสัญญา" },
-                    { label: "Award Subcon" },
-                    { label: "Material THB/W" },
-                    { label: "Labour THB/W" },
-                    { label: "Subcon Name" },
-                    { label: "Award Date" },
-                    { label: "PV Brand" },
-                    { label: "Power Class" },
-                    { label: "Inverter Brand" },
-                    { label: "Inverter Model" },
-                    { label: "Optimizer" },
-                    { label: "BESS Brand" },
-                    { label: "BESS Size" },
-                    { label: "OM" },
-                    { label: "Kick off Date" },
-                    { label: "PU PIC" },
-                    { label: "PM PIC" },
-                    { label: "ENG PIC" },
-                    { label: "สถานะ" },
-                    { label: "Remark" },
-                    { label: "" },
-                  ].map(({ label }, idx) => (
+                  {COLS.map(({ key, label, right }) => (
                     <th
-                      key={label || `col${idx}`}
+                      key={key}
                       style={{
                         position: "sticky", top: 0, zIndex: 1, padding: "8px 10px",
                         borderBottom: "1px solid var(--border)", background: "var(--bg-elevated)",
-                        cursor: "default", userSelect: "none",
+                        textAlign: right ? "right" : "left", cursor: "default", userSelect: "none",
                         fontWeight: 600, color: "var(--text-strong)",
                       }}
                     >
@@ -968,18 +1052,56 @@ export default function ProjectPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => {
-                  const stickyTd = (i: number): React.CSSProperties =>
-                    i < STICKY_WIDTHS.length ? { position: "sticky", left: stickyLeft(i), zIndex: 1, background: "var(--surface)" } : {};
-                  const isEditingStatus = editingCell?.projectId === p.id && editingCell.field === "colorStatus";
-                  return (
-                    <tr key={p.id} style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-                      <td style={{ padding: "8px 10px", fontWeight: 600, ...stickyTd(0) }}>{p.jobNo ?? "-"}</td>
-                      <td style={{ padding: "8px 10px", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", ...stickyTd(1) }}>
-                        <div>{p.name}</div>
-                        {p.phases.length > 0 && (
-                          <div style={{ fontSize: "10px", color: "var(--text-faint)" }}>+{p.phases.length} phase</div>
-                        )}
+                {groups.map(({ key, rows }) => {
+                  const isOpen = expanded.has(key);
+                  const stickyTd = (i: number, bg: string): React.CSSProperties =>
+                    ({ position: "sticky", left: stickyLeft(i), zIndex: 1, background: bg });
+                  const chevron = (open: boolean, onClick?: () => void) => onClick ? (
+                    <button type="button" onClick={onClick} aria-label={open ? "ยุบ" : "ขยาย"} aria-expanded={open}
+                      style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 16, display: "inline-flex", color: "var(--text-muted)" }}>
+                      {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                    </button>
+                  ) : <span style={{ width: 16, display: "inline-block" }} />;
+                  const nameCell = (indent: number, open: boolean, toggle: (() => void) | undefined, text: string, extra?: React.ReactNode, strong?: boolean) => (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: indent, maxWidth: STICKY_WIDTHS[1] - 20 }}>
+                      {chevron(open, toggle)}
+                      <span title={text} style={{ overflow: "hidden", textOverflow: "ellipsis", fontWeight: strong ? 600 : 400 }}>{text}</span>
+                      {extra}
+                    </div>
+                  );
+                  const countPill = (text: string) => (
+                    <span style={{ flexShrink: 0, fontSize: "10px", color: "var(--text-faint)", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 999, padding: "0 6px" }}>{text}</span>
+                  );
+                  // Row that only fills some columns (group summary / phase sub-rows).
+                  const miniRow = (rowKey: string, bg: string, job: React.ReactNode, name: React.ReactNode, status: React.ReactNode,
+                    cells: Record<string, React.ReactNode>, color?: string) => (
+                    <tr key={rowKey} style={{ borderBottom: "1px solid var(--border)", background: bg, color }}>
+                      <td style={{ padding: "8px 10px", fontWeight: 600, ...stickyTd(0, bg) }}>{job}</td>
+                      <td style={{ padding: "8px 10px", ...stickyTd(1, bg) }}>{name}</td>
+                      <td style={{ padding: "8px 10px" }}>{status}</td>
+                      <td style={{ padding: "8px 10px" }} />
+                      {COLS.map((c) => <td key={c.key} style={{ padding: "8px 10px", textAlign: c.right ? "right" : "left" }}>{cells[c.key] ?? ""}</td>)}
+                    </tr>
+                  );
+                  const phaseRows = (p: Project) => p.phases.map((ph, i) => miniRow(
+                    `${p.id}-ph${i}`, "var(--bg)", "", nameCell(30, false, undefined, ph.name || `Phase ${i + 1}`), "",
+                    {
+                      roofType: ph.roofType || "-", kwp: formatNumber(ph.capacityKwp), location: ph.location || "-",
+                      contractPrice: formatNumber(ph.contractPrice), subconAward: formatNumber(ph.subconAwardAmount),
+                      subconName: ph.subconName || "-", pvBrand: ph.pvBrand || "-", powerClass: ph.powerClass || "-",
+                      inverterBrand: ph.inverterBrand || "-", inverterModel: ph.inverterModel || "-", kickoff: ph.kickoffDate || "-",
+                    }, "var(--text-muted)",
+                  ));
+                  const sumOf = (vals: (number | null)[]) => vals.some((v) => v !== null) ? formatNumber(vals.reduce<number>((a, v) => a + (v ?? 0), 0)) : "-";
+
+                  const recordRow = (p: Project, indent: number, toggle?: () => void) => {
+                    const bg = "var(--surface)";
+                    const isEditingStatus = editingCell?.projectId === p.id && editingCell.field === "colorStatus";
+                    return (
+                    <tr key={p.id} style={{ borderBottom: "1px solid var(--border)", background: bg }}>
+                      <td style={{ padding: "8px 10px", fontWeight: 600, ...stickyTd(0, bg) }}>{p.jobNo ?? "-"}</td>
+                      <td style={{ padding: "8px 10px", ...stickyTd(1, bg) }}>
+                        {nameCell(indent, isOpen, toggle, p.name, p.phases.length > 0 ? countPill(`${p.phases.length} phase`) : undefined)}
                       </td>
                       <td style={{ padding: "8px 10px", cursor: "pointer" }} onClick={() => setEditingCell({ projectId: p.id, field: "colorStatus", value: p.colorStatus })}>
                         {isEditingStatus ? (
@@ -999,15 +1121,7 @@ export default function ProjectPage() {
                             ))}
                           </select>
                         ) : (
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: "0.35rem",
-                            padding: "0.2rem 0.55rem", borderRadius: "999px", fontSize: "10px",
-                            background: `color-mix(in srgb, ${COLOR_STATUS_HEX[p.colorStatus]} 16%, transparent)`,
-                            color: COLOR_STATUS_HEX[p.colorStatus],
-                          }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: COLOR_STATUS_HEX[p.colorStatus] }} />
-                            {p.colorStatus}
-                          </span>
+                          <StatusBadge status={p.colorStatus} />
                         )}
                       </td>
                       <td style={{ padding: "8px 10px", cursor: "pointer" }} onClick={() => setEditingCell({ projectId: p.id, field: "toc", value: p.toc })}>
@@ -1040,7 +1154,7 @@ export default function ProjectPage() {
                       </td>
                       <td style={{ padding: "8px 10px" }}>{p.roofType || "-"}</td>
                       <td style={{ padding: "8px 10px" }}>{p.contractType}</td>
-                      <td style={{ padding: "8px 10px", textAlign: "right" }}>{p.capacityKwp ?? "-"}</td>
+                      <td style={{ padding: "8px 10px", textAlign: "right" }}>{formatNumber(p.capacityKwp)}</td>
                       <td style={{ padding: "8px 10px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{p.counterparty || "-"}</td>
                       <td style={{ padding: "8px 10px", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{p.location || "-"}</td>
                       <td style={{ padding: "8px 10px", textAlign: "right" }}>{formatNumber(p.contractPrice)}</td>
@@ -1072,6 +1186,45 @@ export default function ProjectPage() {
                         </button>
                       </td>
                     </tr>
+                    );
+                  };
+
+                  // One record, one name: a normal row, expandable only to show its phases.
+                  if (rows.length === 1) {
+                    const p = rows[0];
+                    return (
+                      <Fragment key={key}>
+                        {recordRow(p, 0, p.phases.length > 0 ? () => toggleGroup(key) : undefined)}
+                        {isOpen && phaseRows(p)}
+                      </Fragment>
+                    );
+                  }
+
+                  // Several records share the name: summary row + expandable child records.
+                  const jobs = rows.map((r) => r.jobNo).filter((j): j is number => j !== null);
+                  const jobLabel = jobs.length === 0 ? "-" : Math.min(...jobs) === Math.max(...jobs) ? String(jobs[0]) : `${Math.min(...jobs)}–${Math.max(...jobs)}`;
+                  const statuses = Array.from(new Set(rows.map((r) => r.colorStatus)));
+                  const types = Array.from(new Set(rows.map((r) => r.contractType)));
+                  return (
+                    <Fragment key={key}>
+                      {miniRow(
+                        `${key}-sum`, "var(--bg-elevated)", jobLabel,
+                        nameCell(0, isOpen, () => toggleGroup(key), rows[0].name, countPill(`${rows.length} รายการ`), true),
+                        <span style={{ display: "inline-flex", gap: 4, flexWrap: "nowrap" }}>{statuses.map((st) => <StatusBadge key={st} status={st} />)}</span>,
+                        {
+                          contractType: types.join(", "),
+                          kwp: sumOf(rows.map((r) => r.capacityKwp)),
+                          contractPrice: sumOf(rows.map((r) => toNumber(r.contractPrice))),
+                          subconAward: sumOf(rows.map((r) => toNumber(r.subconAwardAmount))),
+                        },
+                      )}
+                      {isOpen && rows.map((r) => (
+                        <Fragment key={r.id}>
+                          {recordRow(r, 18)}
+                          {phaseRows(r)}
+                        </Fragment>
+                      ))}
+                    </Fragment>
                   );
                 })}
               </tbody>

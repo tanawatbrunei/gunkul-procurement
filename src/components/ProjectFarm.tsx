@@ -22,17 +22,61 @@ import { IconPlus, IconPencil, IconTrash, IconX } from "@tabler/icons-react";
 
 type FarmType = "EPC" | "PPA";
 
+type FarmStage = "construction" | "cod";
+
 interface FarmProject {
   id: string;
   name: string;
   type: FarmType;
   note: string;
   owners: string[];
+  /** Optional — older docs don't have these; see stageOf() / the card's fallback. */
+  stage?: FarmStage;
+  progress?: number | null;
+}
+
+type FarmInput = Omit<FarmProject, "id">;
+
+/* Phase of a farm. Stored value wins; otherwise PPA farms are operating (COD)
+   and EPC farms are still being built. */
+const stageOf = (p: { type: FarmType; stage?: FarmStage }): FarmStage =>
+  p.stage ?? (p.type === "PPA" ? "cod" : "construction");
+
+const STAGE_LABEL: Record<FarmStage, string> = { construction: "กำลังสร้าง", cod: "COD แล้ว" };
+
+type FarmFilter = "all" | "PPA" | "EPC" | FarmStage;
+const FILTER_TABS: { key: FarmFilter; label: string }[] = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "PPA", label: "PPA" },
+  { key: "EPC", label: "EPC" },
+  { key: "construction", label: "กำลังสร้าง" },
+  { key: "cod", label: "COD แล้ว" },
+];
+
+const matchesFilter = (p: FarmProject, f: FarmFilter) =>
+  f === "all" ? true : f === "PPA" || f === "EPC" ? p.type === f : stageOf(p) === f;
+
+function ProgressBar({ project }: { project: FarmProject }) {
+  const stage = stageOf(project);
+  const isCod = stage === "cod";
+  const pct = isCod ? 100 : typeof project.progress === "number" ? Math.max(0, Math.min(100, project.progress)) : null;
+  const color = isCod ? "var(--success)" : "var(--accent)";
+  return (
+    <div style={{ marginTop: "var(--sp-3)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-xs)", marginBottom: 4 }}>
+        <span style={{ color, fontWeight: 600 }}>{STAGE_LABEL[stage]}</span>
+        <span style={{ color: "var(--text-muted)" }}>{pct === null ? "ยังไม่ระบุ %" : `${pct}%`}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 999, background: "var(--border)", overflow: "hidden" }}>
+        <div style={{ width: `${pct ?? 0}%`, height: "100%", background: color, borderRadius: 999, transition: "width 0.4s ease" }} />
+      </div>
+    </div>
+  );
 }
 
 /* One-time seed for the "homeProjects" collection — only written if the
    collection is empty on first load. */
-const SEED_PROJECTS: Omit<FarmProject, "id">[] = [
+const SEED_PROJECTS: FarmInput[] = [
   { name: "กำแพงเพชร (GPD)", type: "EPC", note: "ส่วนหนึ่งของโครงการ 900+ MW ร่วมกับ Gulf", owners: [] },
   { name: "สุพรรณบุรี SPB1", type: "EPC", note: "ดูแลโดยทีม SPB1", owners: [] },
   { name: "สุพรรณบุรี SPB8", type: "EPC", note: "ดูแลโดยทีม SPB8", owners: [] },
@@ -47,13 +91,15 @@ function FarmEditModal({
   onClose,
 }: {
   project: FarmProject | null;
-  onSave: (data: { name: string; type: FarmType; note: string; owners: string[] }) => Promise<void>;
+  onSave: (data: FarmInput) => Promise<void>;
   onClose: () => void;
 }) {
   const [name, setName] = useState(project?.name ?? "");
   const [type, setType] = useState<FarmType>(project?.type ?? "EPC");
   const [note, setNote] = useState(project?.note ?? "");
   const [ownersText, setOwnersText] = useState(project?.owners.join(", ") ?? "");
+  const [stage, setStage] = useState<FarmStage>(project ? stageOf(project) : "construction");
+  const [progressText, setProgressText] = useState(project?.progress != null ? String(project.progress) : "");
   const [saving, setSaving] = useState(false);
 
   const inputStyle: React.CSSProperties = {
@@ -66,7 +112,9 @@ function FarmEditModal({
     setSaving(true);
     try {
       const owners = ownersText.split(",").map((o) => o.trim()).filter(Boolean);
-      await onSave({ name: name.trim(), type, note: note.trim(), owners });
+      const parsed = progressText.trim() === "" ? NaN : Number(progressText);
+      const progress = stage === "cod" || !Number.isFinite(parsed) ? null : Math.max(0, Math.min(100, Math.round(parsed)));
+      await onSave({ name: name.trim(), type, note: note.trim(), owners, stage, progress });
     } finally {
       setSaving(false);
     }
@@ -95,6 +143,20 @@ function FarmEditModal({
             <option value="PPA">PPA</option>
           </select>
         </label>
+        <div style={{ display: "flex", gap: "var(--sp-3)", marginBottom: "var(--sp-3)" }}>
+          <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--fs-xs)", color: "var(--text-muted)" }}>
+            สถานะโครงการ
+            <select style={inputStyle} value={stage} onChange={(e) => setStage(e.target.value as FarmStage)}>
+              <option value="construction">กำลังสร้าง</option>
+              <option value="cod">COD แล้ว</option>
+            </select>
+          </label>
+          <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--fs-xs)", color: "var(--text-muted)", opacity: stage === "cod" ? 0.5 : 1 }}>
+            ความคืบหน้า (%)
+            <input style={inputStyle} type="number" min={0} max={100} disabled={stage === "cod"} value={stage === "cod" ? "100" : progressText}
+              onChange={(e) => setProgressText(e.target.value)} placeholder="0–100" />
+          </label>
+        </div>
         <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--fs-xs)", color: "var(--text-muted)", marginBottom: "var(--sp-3)" }}>
           รายละเอียด
           <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -126,6 +188,7 @@ export default function ProjectFarm() {
   const [editingProject, setEditingProject] = useState<FarmProject | null>(null);
   const [addingProject, setAddingProject] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FarmFilter>("all");
 
   useEffect(() => {
     let seeded = false;
@@ -152,13 +215,15 @@ export default function ProjectFarm() {
     return unsub;
   }, []);
 
-  const saveProjectEdit = async (data: { name: string; type: FarmType; note: string; owners: string[] }) => {
+  const visibleProjects = projects.filter((p) => matchesFilter(p, filter));
+
+  const saveProjectEdit = async (data: FarmInput) => {
     if (!editingProject) return;
     await updateDoc(doc(db, "homeProjects", editingProject.id), data);
     setEditingProject(null);
   };
 
-  const addNewProject = async (data: { name: string; type: FarmType; note: string; owners: string[] }) => {
+  const addNewProject = async (data: FarmInput) => {
     await addDoc(collection(db, "homeProjects"), data);
     setAddingProject(false);
   };
@@ -205,8 +270,33 @@ export default function ProjectFarm() {
             ยังไม่มีโครงการ กดปุ่ม "เพิ่มโครงการ" เพื่อเริ่มต้น
           </div>
         ) : (
+          <>
+          <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-2)", marginBottom: "var(--sp-4)" }}>
+            {FILTER_TABS.map((t) => {
+              const active = filter === t.key;
+              const count = projects.filter((p) => matchesFilter(p, t.key)).length;
+              return (
+                <button
+                  key={t.key} type="button" role="tab" aria-selected={active}
+                  onClick={() => setFilter(t.key)}
+                  style={{
+                    padding: "6px 14px", borderRadius: "var(--radius-full)", cursor: "pointer", font: "inherit",
+                    fontSize: "var(--fs-xs)", fontWeight: 600,
+                    border: `1.5px solid ${active ? "var(--primary)" : "var(--border-strong)"}`,
+                    background: active ? "var(--primary)" : "var(--surface)",
+                    color: active ? "var(--primary-contrast)" : "var(--text-muted)",
+                  }}
+                >
+                  {t.label} <span style={{ opacity: 0.7, fontWeight: 500 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          {visibleProjects.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "var(--sp-6)", color: "var(--text-faint)" }}>ไม่มีโครงการในหมวดนี้</div>
+          ) : (
           <div style={grid(320)}>
-            {projects.map((p) => {
+            {visibleProjects.map((p) => {
               const isEpc = p.type === "EPC";
               const c = isEpc ? "var(--primary)" : "var(--accent)";
               return (
@@ -220,6 +310,7 @@ export default function ProjectFarm() {
                           ผู้รับผิดชอบ: {p.owners.join(", ")}
                         </div>
                       )}
+                      <ProgressBar project={p} />
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--sp-2)", flexShrink: 0 }}>
                       <span
@@ -259,6 +350,8 @@ export default function ProjectFarm() {
               );
             })}
           </div>
+          )}
+          </>
         )}
       </Section>
 

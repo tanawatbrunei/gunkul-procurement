@@ -6,7 +6,7 @@ import type { Tab } from "./TrackingPage";
 import { subscribeTabs, getTabsSnapshot, getTabsError } from "./data/trackingStore";
 import type { DrilldownRequest } from "./TrackingDrilldownView";
 
-export default function DashboardPage({ onDrill }: { onDrill: (r: DrilldownRequest) => void }) {
+export default function DashboardPage({ onDrill, onOpenAllRows }: { onDrill: (r: DrilldownRequest) => void; onOpenAllRows: () => void }) {
   const [tabs, setTabs] = useState<Tab[]>(getTabsSnapshot());
   const [loadError, setLoadError] = useState<string | null>(getTabsError());
 
@@ -39,7 +39,7 @@ export default function DashboardPage({ onDrill }: { onDrill: (r: DrilldownReque
       ) : tabs.length === 0 ? (
         <div style={{ color: "var(--text-muted)", fontSize: "var(--fs-sm)" }}>ยังไม่มีข้อมูลใน Tracking Sheet</div>
       ) : (
-        <TrackingOverview tabs={tabs} onDrill={onDrill} />
+        <TrackingOverview tabs={tabs} onDrill={onDrill} onOpenAllRows={onOpenAllRows} />
       )}
     </div>
   );
